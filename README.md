@@ -5,6 +5,9 @@ A creator-facing analytics dashboard built with **Next.js and TypeScript** to ex
 This project emphasizes **clean frontend architecture, data pipelines, and interpretability**, and is actively being developed as a foundation for future ML-powered content insights.
 
 > 🚧 **Status:** In active development — features, metrics, and insights are continuously evolving.
+> 
+> 🔗 **Live Demo:** [View on Vercel](https://creator-dashboard-indol.vercel.app/)
+
 
 ---
 
