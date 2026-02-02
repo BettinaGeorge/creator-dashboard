@@ -1,21 +1,22 @@
 import { loadIgPosts } from "@/lib/loadIgData";
-import OverviewClient from "@/components/OverviewClient";
+import StrategyClient from "./StrategyClient";
 
-export default function Page() {
+// ...rest of code...
+
+export default function StrategyPage() {
   const posts = loadIgPosts();
 
   return (
     <main className="min-h-screen bg-white text-black">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-8">
-          <h1 className="text-3xl font-semibold">Creator Dashboard</h1>
+          <h1 className="text-3xl font-semibold">Content Strategy</h1>
           <p className="text-sm text-neutral-600">
-            IG performance + strategy insights (brands + optimization).
+            Pillar, format, and hook insights.
           </p>
         </div>
 
-        {/* Client component for charts */}
-        <OverviewClient posts={posts} />
+        <StrategyClient posts={posts} />
       </div>
     </main>
   );
