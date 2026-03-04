@@ -17,7 +17,7 @@ from typing import List, Dict, Any, Optional
 from integrations.base_client import BaseIngestionClient
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-IG_LOG_PATH = BASE_DIR.parent / "data" / "ig_content_log.csv"
+IG_LOG_PATH = BASE_DIR / "data" / "ig_content_log.csv"
 VIRAL_DATASET_PATH = BASE_DIR / "data" / "viral_shorts_reels_performance_dataset.csv"
 
 # Default hook text by niche for synthetic records from the viral dataset
