@@ -77,7 +77,7 @@ export default function ReelDetailPage() {
       </div>
 
       <div className="main">
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 24, maxWidth: 900 }}>
+        <div className="reel-detail-layout">
 
           {/* Thumbnail */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -131,7 +131,7 @@ export default function ReelDetailPage() {
             </div>
 
             {/* Metric cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+            <div className="page-grid-4">
               {[['Views', fmtViews(views)], ['Reach', fmtViews(reach)], ['Saves', saves], ['Shares', shares]].map(([label, val]) => (
                 <div key={label} className="panel" style={{ animation: 'fadeUp 0.4s ease both', textAlign: 'center', padding: 16 }}>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>

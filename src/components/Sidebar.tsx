@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 import { useTheme } from './ThemeProvider'
 
 const analyticsNav = [
@@ -69,6 +70,9 @@ const toolsNav = [
 export default function Sidebar() {
   const pathname = usePathname()
   const { theme, toggleTheme } = useTheme()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const close = () => setIsOpen(false)
 
   const isActive = (href: string) => {
     if (href === '/') return pathname === '/'
@@ -76,46 +80,69 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar">
-      <div className="sidebar-logo">
-        <span className="logo-script">bettina george</span>
-        <span className="logo-sub">Content Intelligence</span>
-      </div>
+    <>
+      {/* Mobile hamburger — fixed, only visible on mobile via CSS */}
+      <button
+        className={`hamburger${isOpen ? ' hidden' : ''}`}
+        onClick={() => setIsOpen(true)}
+        aria-label="Open menu"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <line x1="2" y1="4" x2="14" y2="4"/>
+          <line x1="2" y1="8" x2="14" y2="8"/>
+          <line x1="2" y1="12" x2="14" y2="12"/>
+        </svg>
+      </button>
 
-      <nav className="nav">
-        <div className="nav-section-label">Analytics</div>
-        {analyticsNav.map((item) => (
-          <Link
-            key={item.href + item.label}
-            href={item.href}
-            className={`nav-item ${isActive(item.href) && !(item.href === '/reels' && pathname === '/reels') ? 'active' : ''} ${item.href === '/reels' && pathname === '/' ? '' : isActive(item.href) ? 'active' : ''}`}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
+      {/* Overlay — closes sidebar on tap */}
+      <div
+        className={`sidebar-overlay${isOpen ? ' visible' : ''}`}
+        onClick={close}
+      />
 
-        <div className="nav-section-label">Tools</div>
-        {toolsNav.map((item) => (
-          <Link
-            key={item.href + item.label}
-            href={item.href}
-            className={`nav-item ${item.href === '/predict' && pathname === '/predict' ? 'active' : ''} ${item.label === 'Reel Detail' && pathname.startsWith('/reels/') ? 'active' : ''}`}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
-      </nav>
-
-      <div className="sidebar-bottom">
-        <div className="theme-toggle" onClick={toggleTheme}>
-          <div className="toggle-track">
-            <div className="toggle-thumb" />
-          </div>
-          <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+      <aside className={`sidebar${isOpen ? ' open' : ''}`}>
+        <div className="sidebar-logo">
+          <span className="logo-script">bettina george</span>
+          <span className="logo-sub">Content Intelligence</span>
         </div>
-      </div>
-    </aside>
+
+        <nav className="nav">
+          <div className="nav-section-label">Analytics</div>
+          {analyticsNav.map((item) => (
+            <Link
+              key={item.href + item.label}
+              href={item.href}
+              onClick={close}
+              className={`nav-item ${isActive(item.href) && !(item.href === '/reels' && pathname === '/reels') ? 'active' : ''} ${item.href === '/reels' && pathname === '/' ? '' : isActive(item.href) ? 'active' : ''}`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+
+          <div className="nav-section-label">Tools</div>
+          {toolsNav.map((item) => (
+            <Link
+              key={item.href + item.label}
+              href={item.href}
+              onClick={close}
+              className={`nav-item ${item.href === '/predict' && pathname === '/predict' ? 'active' : ''} ${item.label === 'Reel Detail' && pathname.startsWith('/reels/') ? 'active' : ''}`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="theme-toggle" onClick={toggleTheme}>
+            <div className="toggle-track">
+              <div className="toggle-thumb" />
+            </div>
+            <span>{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
+          </div>
+        </div>
+      </aside>
+    </>
   )
 }

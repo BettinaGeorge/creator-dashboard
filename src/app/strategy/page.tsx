@@ -38,7 +38,7 @@ export default function StrategyPage() {
         {loading ? (
           <div className="state-empty">LOADING STRATEGY<br />→ fetching analytics</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="page-grid-2">
 
             {/* Category intelligence */}
             <div className="panel" style={{ animation: 'fadeUp 0.4s ease both' }}>
@@ -96,7 +96,7 @@ export default function StrategyPage() {
                   <div className="panel-label">Avg views by audio type</div>
                 </div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(audioTypes.length, 4)}, 1fr)`, gap: 12, marginTop: 8 }}>
+              <div className="audio-types-grid">
                 {audioTypes.slice(0, 4).map(a => (
                   <div key={a.audio_type} style={{
                     background: 'var(--bg-card)',

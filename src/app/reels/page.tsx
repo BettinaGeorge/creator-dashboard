@@ -32,7 +32,7 @@ export default function ReelsPage() {
         ) : reels.length === 0 ? (
           <div className="state-empty">NO REELS FOUND<br />→ run POST /ingest to seed data</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+          <div className="page-grid-3">
             {reels.map((reel) => {
               const insight = reel.insights?.[0]
               const views = insight?.video_views ?? 0

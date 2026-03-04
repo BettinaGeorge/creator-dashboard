@@ -56,7 +56,7 @@ export default function PredictPage() {
       </div>
 
       <div className="main">
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, maxWidth: 900 }}>
+        <div className="page-grid-2" style={{ maxWidth: 900 }}>
 
           {/* Input form */}
           <div className="panel" style={{ animation: 'fadeUp 0.4s ease both' }}>
@@ -170,7 +170,7 @@ export default function PredictPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
                 {/* Metric cards */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div className="page-grid-2" style={{ gap: 12 }}>
                   {[
                     ['Predicted Views', fmtViews(Math.round(result.predicted_views))],
                     ['Performance', result.performance_category],

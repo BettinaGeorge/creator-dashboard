@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           <div className="shell">
             <Sidebar />
-            <div style={{ gridColumn: 2, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
+            <div className="main-content" style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
               {children}
             </div>
           </div>
