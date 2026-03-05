@@ -5,6 +5,7 @@ from integrations.base_client import BaseIngestionClient
 from models.reel import Reel
 from repositories.reel_repository import create_reel
 from repositories.reel_insight_repository import create_insight
+from repositories.reel_tag_repository import get_all_tags
 
 
 def _reel_exists(db: Session, reel_id: str) -> bool:
@@ -45,12 +46,26 @@ def run_ingestion(db: Session, client: BaseIngestionClient) -> Dict[str, Any]:
             print(f"[ingestion] Failed to ingest reel {reel_id}: {e}")
             failed += 1
 
+    # Re-apply any manual tags saved before this reingest
+    tags = get_all_tags(db)
+    reapplied = 0
+    for tag in tags:
+        if tag.category:
+            reel = db.query(Reel).filter(Reel.id == tag.reel_id).first()
+            if reel:
+                reel.category = tag.category
+                reapplied += 1
+    if reapplied:
+        db.commit()
+        print(f"[ingestion] Re-applied {reapplied} manual category tag(s)")
+
     return {
-        "status":  "complete",
-        "created": created,
-        "skipped": skipped,
-        "failed":  failed,
-        "total":   len(reels),
+        "status":    "complete",
+        "created":   created,
+        "skipped":   skipped,
+        "failed":    failed,
+        "total":     len(reels),
+        "reapplied": reapplied,
     }
 
 

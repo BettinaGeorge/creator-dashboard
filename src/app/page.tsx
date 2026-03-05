@@ -1,55 +1,111 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { api, fmtViews, fmtDate, Summary, TopReel, Category, AudioType, GrowthPoint } from '@/lib/api'
+import { api, fmtViews, fmtDate, Summary, TopReel, Category, GrowthPoint } from '@/lib/api'
+
+// ── Period options ──────────────────────────────────────────────────
+const PERIODS = [
+  { label: '1W', days: 7 },
+  { label: '1M', days: 30 },
+  { label: '6M', days: 180 },
+  { label: '1Y', days: 365 },
+  { label: 'All', days: null },
+] as const
+
+type PeriodLabel = typeof PERIODS[number]['label']
+
+// ── Chart metric options ────────────────────────────────────────────
+const METRICS = ['Views', 'Interactions'] as const
+type ChartMetric = typeof METRICS[number]
+
+function fromDateFor(days: number | null): string | undefined {
+  if (!days) return undefined
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().slice(0, 10)
+}
+
+// ── Small pill button ───────────────────────────────────────────────
+function Pill({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        fontFamily: 'var(--font-mono)',
+        fontSize: 12,
+        letterSpacing: '0.12em',
+        textTransform: 'uppercase',
+        padding: '6px 14px',
+        borderRadius: 20,
+        border: active ? '1px solid var(--accent-border)' : '1px solid var(--border-soft)',
+        background: active ? 'var(--accent-glow)' : 'transparent',
+        color: active ? 'var(--accent-soft)' : 'var(--text-muted)',
+        cursor: 'pointer',
+        transition: 'all 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  )
+}
 
 export default function DashboardPage() {
+  const [period, setPeriod]       = useState<PeriodLabel>('All')
+  const [metric, setMetric]       = useState<ChartMetric>('Views')
+  const [catMetric, setCatMetric] = useState<'Views' | 'Saves' | 'Reels' | 'Eng Rate'>('Views')
   const [summary, setSummary]     = useState<Summary | null>(null)
   const [topReels, setTopReels]   = useState<TopReel[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [audioTypes, setAudioTypes] = useState<AudioType[]>([])
   const [growth, setGrowth]       = useState<GrowthPoint[]>([])
   const [loading, setLoading]     = useState(true)
 
-  useEffect(() => {
+  const load = useCallback((p: PeriodLabel) => {
+    const days = PERIODS.find(x => x.label === p)?.days ?? null
+    const from = fromDateFor(days)
+    setLoading(true)
     Promise.all([
-      api.summary('personal'),
+      api.summary('personal', from),
       api.topPerforming(5, 'personal'),
-      api.categories(),
-      api.audioTypes(),
-      api.growth('personal'),
-    ]).then(([s, t, c, a, g]) => {
+      api.categories('personal'),
+      api.growth('personal', from),
+    ]).then(([s, t, c, g]) => {
       setSummary(s)
       setTopReels(t)
-      setCategories(c.slice(0, 4))
-      setAudioTypes(a.slice(0, 3))
+      setCategories(c)
       setGrowth(g)
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])
 
+  useEffect(() => { load(period) }, [period, load])
+
   const now = new Date().toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()
 
-  // Engagement rate from personal data
   const engRate = summary && summary.avg_views > 0
     ? ((summary.avg_engagement / summary.avg_views) * 100).toFixed(1) + '%'
     : '—'
 
-  // Growth chart
-  const maxViews = growth.length ? Math.max(...growth.map(g => g.video_views)) : 1
+  // Chart bars — Views = raw video views; Interactions = saves + shares (high-intent only)
+  const chartValue = (pt: GrowthPoint) =>
+    metric === 'Views' ? pt.video_views : (pt.saves ?? 0) + (pt.shares ?? 0)
 
-  // Category chart
-  const maxCatViews = categories.length ? Math.max(...categories.map(c => c.avg_views)) : 1
+  const maxChart = growth.length ? Math.max(...growth.map(chartValue), 1) : 1
 
-  // Audio chart
-  const maxAudioViews = audioTypes.length ? Math.max(...audioTypes.map(a => a.avg_views)) : 1
+  const catValue = (c: typeof categories[0]) => {
+    if (catMetric === 'Views')    return c.avg_views
+    if (catMetric === 'Saves')    return c.avg_saves
+    if (catMetric === 'Reels')    return c.reel_count
+    return c.avg_views > 0 ? (c.avg_engagement / c.avg_views) * 100 : 0
+  }
+  const catLabel = (c: typeof categories[0]) => {
+    if (catMetric === 'Views')    return fmtViews(c.avg_views)
+    if (catMetric === 'Saves')    return String(c.avg_saves)
+    if (catMetric === 'Reels')    return `${c.reel_count}`
+    return c.avg_views > 0 ? `${((c.avg_engagement / c.avg_views) * 100).toFixed(1)}%` : '0%'
+  }
+  const maxCatValue = categories.length ? Math.max(...categories.map(catValue), 1) : 1
 
-  // Content score (engagement rate scaled 0-100)
-  const contentScore = summary
-    ? Math.min(100, Math.round(summary.avg_engagement_rate * 8))
-    : 0
-  const ringOffset = Math.round(283 - (contentScore / 100) * 283)
 
   if (loading) {
     return (
@@ -72,6 +128,17 @@ export default function DashboardPage() {
           <div className="topbar-title">Overview <span>Dashboard</span></div>
         </div>
         <div className="topbar-right">
+          {/* Period filter */}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {PERIODS.map(p => (
+              <Pill
+                key={p.label}
+                label={p.label}
+                active={period === p.label}
+                onClick={() => setPeriod(p.label)}
+              />
+            ))}
+          </div>
           <div className="topbar-date">{now}</div>
           <div className="live-badge">
             <div className="live-dot" />
@@ -114,37 +181,56 @@ export default function DashboardPage() {
             <div className="panel-header">
               <div>
                 <div className="panel-title">Growth Trend</div>
-                <div className="panel-label">Views — chronological</div>
+                <div className="panel-label">
+                  {metric === 'Views'
+                    ? 'Video views per reel'
+                    : 'Saves + shares per reel (high-intent actions)'
+                  } — {growth.length} reel{growth.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+              {/* Chart metric toggle */}
+              <div style={{ display: 'flex', gap: 4 }}>
+                {METRICS.map(m => (
+                  <Pill key={m} label={m} active={metric === m} onClick={() => setMetric(m)} />
+                ))}
               </div>
             </div>
 
-            <div className="chart-area">
-              {growth.map((pt, i) => {
-                const pct = (pt.video_views / maxViews * 100).toFixed(1)
-                const cls = parseFloat(pct) > 80 ? 'hi' : parseFloat(pct) < 40 ? 'lo' : ''
-                return (
-                  <div key={pt.reel_id} className="bar-group" title={`${fmtViews(pt.video_views)} views`}>
-                    <div
-                      className={`bar-fill ${cls}`}
-                      style={{ height: `${pct}%`, animationDelay: `${i * 0.06}s` }}
-                    />
-                  </div>
-                )
-              })}
-            </div>
+            {growth.length === 0 ? (
+              <div className="state-empty" style={{ height: 140 }}>
+                NO DATA FOR THIS PERIOD
+              </div>
+            ) : (
+              <>
+                <div className="chart-area">
+                  {growth.map((pt, i) => {
+                    const val = chartValue(pt)
+                    const pct = (val / maxChart * 100).toFixed(1)
+                    const cls = parseFloat(pct) > 80 ? 'hi' : parseFloat(pct) < 40 ? 'lo' : ''
+                    const tip = metric === 'Views'
+                      ? `${fmtViews(pt.video_views)} views`
+                      : `${fmtViews((pt.saves ?? 0) + (pt.shares ?? 0))} saves+shares`
+                    return (
+                      <div key={pt.reel_id} className="bar-group" title={tip}>
+                        <div
+                          className={`bar-fill ${cls}`}
+                          style={{ height: `${pct}%`, animationDelay: `${i * 0.06}s` }}
+                        />
+                      </div>
+                    )
+                  })}
+                </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
-              {growth.length > 0 && (
-                <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10 }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)' }}>
                     {fmtDate(growth[0].posted_at)}
                   </span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--text-muted)' }}>
                     {fmtDate(growth[growth.length - 1].posted_at)}
                   </span>
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Top reels */}
@@ -179,75 +265,61 @@ export default function DashboardPage() {
         {/* ── BOTTOM ROW ── */}
         <div className="bottom-row">
 
-          {/* Category breakdown */}
-          <div className="panel" style={{ animationDelay: '0.4s' }}>
+          <div className="panel" style={{ animationDelay: '0.4s', gridColumn: 'span 2' }}>
             <div className="panel-header">
               <div>
-                <div className="panel-title">Categories</div>
-                <div className="panel-label">Avg views by type</div>
+                <div className="panel-title">Niches</div>
+                <div className="panel-label">
+                  {catMetric === 'Views'    ? 'Avg views per reel' :
+                   catMetric === 'Saves'    ? 'Avg saves per reel — high intent' :
+                   catMetric === 'Reels'    ? 'Reels posted — where you invest time' :
+                   'Engagement rate — interactions / views'}
+                </div>
               </div>
             </div>
-            {categories.map(c => (
-              <div key={c.category} className="breakdown-item">
-                <div className="breakdown-name">{c.category}</div>
-                <div className="breakdown-bar-wrap">
-                  <div className="breakdown-bar-fill" style={{ width: `${(c.avg_views / maxCatViews * 100).toFixed(0)}%` }} />
-                </div>
-                <div className="breakdown-val">{fmtViews(c.avg_views)}</div>
+
+            <div style={{ display: 'flex', gap: 4, marginBottom: 14, flexWrap: 'wrap' }}>
+              {(['Views', 'Saves', 'Reels', 'Eng Rate'] as const).map(m => (
+                <button key={m} onClick={() => setCatMetric(m)} style={{
+                  fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em',
+                  padding: '4px 10px', borderRadius: 20,
+                  border: catMetric === m ? '1px solid var(--accent)' : '1px solid var(--border-soft)',
+                  background: catMetric === m ? 'var(--accent-glow)' : 'transparent',
+                  color: catMetric === m ? 'var(--accent-soft)' : 'var(--text-muted)',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}>{m}</button>
+              ))}
+            </div>
+
+            {categories.length === 0 ? (
+              <div className="state-empty" style={{ height: 80 }}>
+                Tag your reels to see niche breakdown
               </div>
-            ))}
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+                {[...categories].sort((a, b) => catValue(b) - catValue(a)).map(c => (
+                  <div key={c.category} className="breakdown-item">
+                    <div className="breakdown-name">{c.category}</div>
+                    <div className="breakdown-bar-wrap">
+                      <div className="breakdown-bar-fill" style={{ width: `${(catValue(c) / maxCatValue * 100).toFixed(0)}%` }} />
+                    </div>
+                    <div className="breakdown-val">{catLabel(c)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Audio + ring */}
-          <div className="panel" style={{ animationDelay: '0.45s' }}>
-            <div className="panel-header">
-              <div>
-                <div className="panel-title">Audio Performance</div>
-                <div className="panel-label">Avg views by audio type</div>
-              </div>
-            </div>
-
-            <div className="score-ring-wrap">
-              <div className="score-ring">
-                <svg viewBox="0 0 110 110">
-                  <circle className="ring-track" cx="55" cy="55" r="45" />
-                  <circle
-                    className="ring-fill"
-                    cx="55" cy="55" r="45"
-                    style={{ strokeDashoffset: ringOffset }}
-                  />
-                </svg>
-                <div className="score-center">
-                  <div className="score-num">{contentScore}</div>
-                  <div className="score-denom">/100</div>
-                </div>
-              </div>
-              <div className="score-label">Content Score</div>
-              <div className="score-sublabel">{summary?.avg_engagement_rate.toFixed(1)}% avg engagement rate</div>
-            </div>
-
-            {audioTypes.map(a => (
-              <div key={a.audio_type} className="breakdown-item">
-                <div className="breakdown-name">{a.audio_type}</div>
-                <div className="breakdown-bar-wrap">
-                  <div className="breakdown-bar-fill" style={{ width: `${(a.avg_views / maxAudioViews * 100).toFixed(0)}%` }} />
-                </div>
-                <div className="breakdown-val">{fmtViews(a.avg_views)}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* Predict CTA */}
-          <div className="predict-panel" style={{ animationDelay: '0.5s' }}>
+          <div className="predict-panel" style={{ animationDelay: '0.5s', opacity: 0.5, filter: 'grayscale(0.4)' }}>
             <div>
-              <div className="predict-eyebrow">ML Powered</div>
-              <div className="predict-headline">Predict your next reel's performance</div>
+              <div className="predict-eyebrow" style={{ color: 'var(--text-muted)' }}>Coming back soon</div>
+              <div className="predict-headline" style={{ opacity: 0.7 }}>ML Predictor — paused</div>
               <div className="predict-desc">
-                Enter your hook text, duration, category, and audio type. The model returns predicted views, a virality probability score, and content recommendations.
+                Model needs real per-reel metrics to be accurate. Will reactivate when Instagram Graph API is connected.
               </div>
             </div>
-            <Link href="/predict" className="predict-btn">
-              Run Prediction
+            <Link href="/studio" className="predict-btn">
+              Try AI Studio instead
               <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ width: 12, height: 12 }}>
                 <line x1="1" y1="6" x2="11" y2="6" />
                 <polyline points="7,2 11,6 7,10" />

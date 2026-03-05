@@ -14,6 +14,7 @@ class Reel(Base):
     audio_type = Column(String, nullable=True)
     posted_at = Column(DateTime, nullable=True)
     source = Column(String, nullable=True, default="synthetic")
+    video_url = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     insights = relationship("ReelInsight", back_populates="reel")

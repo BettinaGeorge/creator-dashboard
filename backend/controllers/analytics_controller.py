@@ -16,27 +16,27 @@ router = APIRouter(prefix="/analytics", tags=["analytics"])
 
 
 @router.get("/summary")
-def summary(source: Optional[str] = None, db: Session = Depends(get_db)):
-    """Overall performance stats. Pass ?source=personal for personal reels only."""
-    return get_summary(db, source=source)
+def summary(source: Optional[str] = None, from_date: Optional[str] = None, db: Session = Depends(get_db)):
+    """Overall performance stats. Pass ?source=personal and/or ?from_date=YYYY-MM-DD."""
+    return get_summary(db, source=source, from_date=from_date)
 
 
 @router.get("/categories")
-def category_performance(db: Session = Depends(get_db)):
-    """Average views and engagement broken down by content category."""
-    return get_category_performance(db)
+def category_performance(source: Optional[str] = None, db: Session = Depends(get_db)):
+    """Average views and engagement broken down by content category. Pass ?source=personal to filter."""
+    return get_category_performance(db, source=source)
 
 
 @router.get("/audio-types")
-def audio_type_performance(db: Session = Depends(get_db)):
-    """Average views and engagement broken down by audio type."""
-    return get_audio_type_performance(db)
+def audio_type_performance(source: Optional[str] = None, db: Session = Depends(get_db)):
+    """Average views and engagement broken down by audio type. Pass ?source=personal to filter."""
+    return get_audio_type_performance(db, source=source)
 
 
 @router.get("/growth")
-def growth(source: Optional[str] = None, db: Session = Depends(get_db)):
-    """Reels ordered chronologically with view counts — for growth trend chart."""
-    return get_growth_data(db, source=source)
+def growth(source: Optional[str] = None, from_date: Optional[str] = None, db: Session = Depends(get_db)):
+    """Reels ordered chronologically — for growth trend chart. Accepts ?from_date=YYYY-MM-DD."""
+    return get_growth_data(db, source=source, from_date=from_date)
 
 
 @router.get("/top-performing")

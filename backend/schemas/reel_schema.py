@@ -23,6 +23,7 @@ class ReelResponse(BaseModel):
     audio_type: Optional[str]
     posted_at: Optional[datetime]
     created_at: Optional[datetime]
+    video_url: Optional[str] = None
 
     insights: List[ReelInsightResponse] = []
 

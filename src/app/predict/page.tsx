@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { api, fmtViews, PredictResult } from '@/lib/api'
 
+const PAUSED = true // ML model trained on synthetic data — needs real Graph API metrics
+
 const NICHES = ['Motivation', 'Tech', 'Travel', 'Fitness', 'Food', 'Fashion', 'Comedy', 'Lifestyle', 'Beauty', 'Education', 'Finance']
 const MUSIC_TYPES = ['Trending', 'Viral Track', 'Remix', 'Original']
 
@@ -43,14 +45,54 @@ export default function PredictPage() {
 
   const viralityPct = result ? Math.round(result.virality_probability * 100) : 0
 
+  if (PAUSED) {
+    return (
+      <>
+        <div className="topbar">
+          <div className="topbar-title" style={{ opacity: 0.4 }}>ML <span>Predictor</span></div>
+          <div className="topbar-right">
+            <div className="live-badge" style={{ borderColor: 'var(--border-soft)', color: 'var(--text-muted)', opacity: 0.5 }}>
+              <div className="live-dot" style={{ background: 'var(--text-muted)' }} />
+              Paused
+            </div>
+          </div>
+        </div>
+        <div className="main">
+          <div style={{
+            maxWidth: 480,
+            margin: '60px auto',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 16,
+          }}>
+            <div style={{ fontSize: 32, opacity: 0.25 }}>◎</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 22, fontStyle: 'italic', color: 'var(--text-primary)', opacity: 0.5 }}>
+              Predictor paused
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--text-muted)', lineHeight: 1.8, letterSpacing: '0.04em' }}>
+              The ML model was trained on a synthetic dataset of 400 reels.
+              Until real per-reel metrics are available via the Instagram Graph API,
+              predictions wouldn't be meaningful for your actual content.
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-muted)', opacity: 0.6, letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: 8 }}>
+              Will reactivate when Graph API is connected
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
   return (
     <>
       <div className="topbar">
         <div className="topbar-title">ML <span>Predictor</span></div>
         <div className="topbar-right">
-          <div className="live-badge">
-            <div className="live-dot" />
-            RandomForest model
+          <div className="live-badge" style={{ borderColor: 'var(--border-soft)', color: 'var(--text-muted)' }}>
+            <div className="live-dot" style={{ background: '#f59e0b' }} />
+            Baseline model · proof of concept
           </div>
         </div>
       </div>
@@ -156,7 +198,7 @@ export default function PredictPage() {
             <div className="panel-header">
               <div>
                 <div className="panel-title">Prediction Results</div>
-                <div className="panel-label">ML model output</div>
+                <div className="panel-label">Directional estimate — not a precise forecast</div>
               </div>
             </div>
 
@@ -172,7 +214,7 @@ export default function PredictPage() {
                 {/* Metric cards */}
                 <div className="page-grid-2" style={{ gap: 12 }}>
                   {[
-                    ['Predicted Views', fmtViews(Math.round(result.predicted_views))],
+                    ['Est. Views (baseline)', fmtViews(Math.round(result.predicted_views))],
                     ['Performance', result.performance_category],
                     ['Virality Score', `${viralityPct}%`],
                     ['Duration Signal', parseInt(form.duration_sec) < 15 ? '✓ Ideal' : '↓ Shorter'],
@@ -221,6 +263,26 @@ export default function PredictPage() {
                   </div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--text-secondary)', lineHeight: 1.7 }}>
                     {result.recommendation}
+                  </div>
+                </div>
+
+                {/* Model context */}
+                <div style={{
+                  padding: 14,
+                  background: 'transparent',
+                  border: '1px solid var(--border-soft)',
+                  borderRadius: 4,
+                }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, letterSpacing: '0.15em', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: 8 }}>
+                    About this model
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                    Trained on 400 rows of public viral content data using RandomForest regression.
+                    Signals used: duration, hook strength, niche, audio type, posting day.
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: '#6b3a3a', lineHeight: 1.8, marginTop: 6 }}>
+                    Not modelled: account size, engagement velocity, hashtag reach, algorithm push, content quality.
+                    Treat output as a directional signal — accuracy improves as real creator data accumulates.
                   </div>
                 </div>
 

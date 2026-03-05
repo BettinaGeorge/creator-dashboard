@@ -80,7 +80,7 @@ def compute_reel_analytics(db: Session, reel_id: str):
     }
 
 
-def get_summary(db: Session, source: str = None):
+def get_summary(db: Session, source: str = None, from_date: str = None):
     query = db.query(
         func.count(func.distinct(Reel.id)).label("total_reels"),
         func.sum(ReelInsight.video_views).label("total_views"),
@@ -94,6 +94,8 @@ def get_summary(db: Session, source: str = None):
 
     if source:
         query = query.filter(Reel.source == source)
+    if from_date:
+        query = query.filter(Reel.posted_at >= from_date)
 
     result = query.first()
 
@@ -121,16 +123,22 @@ def get_summary(db: Session, source: str = None):
     }
 
 
-def get_category_performance(db: Session):
-    rows = (
+def get_category_performance(db: Session, source: str = None):
+    query = (
         db.query(
             Reel.category,
             func.avg(ReelInsight.video_views).label("avg_views"),
             func.avg(ReelInsight.engagement).label("avg_engagement"),
+            func.avg(ReelInsight.saves).label("avg_saves"),
             func.count(Reel.id).label("reel_count"),
         )
         .join(ReelInsight, Reel.id == ReelInsight.reel_id)
         .filter(Reel.category.isnot(None))
+    )
+    if source:
+        query = query.filter(Reel.source == source)
+    rows = (
+        query
         .group_by(Reel.category)
         .order_by(func.avg(ReelInsight.video_views).desc())
         .all()
@@ -141,14 +149,15 @@ def get_category_performance(db: Session):
             "category":       row.category,
             "avg_views":      round(row.avg_views or 0),
             "avg_engagement": round(row.avg_engagement or 0),
+            "avg_saves":      round(row.avg_saves or 0),
             "reel_count":     row.reel_count,
         }
         for row in rows
     ]
 
 
-def get_audio_type_performance(db: Session):
-    rows = (
+def get_audio_type_performance(db: Session, source: str = None):
+    query = (
         db.query(
             Reel.audio_type,
             func.avg(ReelInsight.video_views).label("avg_views"),
@@ -157,6 +166,11 @@ def get_audio_type_performance(db: Session):
         )
         .join(ReelInsight, Reel.id == ReelInsight.reel_id)
         .filter(Reel.audio_type.isnot(None))
+    )
+    if source:
+        query = query.filter(Reel.source == source)
+    rows = (
+        query
         .group_by(Reel.audio_type)
         .order_by(func.avg(ReelInsight.video_views).desc())
         .all()
@@ -195,15 +209,21 @@ def get_top_performing_reels(db: Session, limit: int = 10, source: str = None):
     ]
 
 
-def get_growth_data(db: Session, source: str = None):
-    """Reels ordered chronologically with their view counts — used for the growth trend chart."""
+def get_growth_data(db: Session, source: str = None, from_date: str = None):
+    """Reels ordered chronologically with view + engagement counts — growth trend chart."""
     query = (
-        db.query(Reel.id, Reel.posted_at, Reel.hook_text, ReelInsight.video_views)
+        db.query(
+            Reel.id, Reel.posted_at, Reel.hook_text,
+            ReelInsight.video_views, ReelInsight.engagement,
+            ReelInsight.saves, ReelInsight.shares,
+        )
         .join(ReelInsight, Reel.id == ReelInsight.reel_id)
         .filter(Reel.posted_at.isnot(None))
     )
     if source:
         query = query.filter(Reel.source == source)
+    if from_date:
+        query = query.filter(Reel.posted_at >= from_date)
 
     rows = query.order_by(Reel.posted_at.asc()).all()
 
@@ -213,6 +233,9 @@ def get_growth_data(db: Session, source: str = None):
             "posted_at":   r[1].isoformat() if r[1] else None,
             "hook_text":   r[2],
             "video_views": r[3],
+            "engagement":  r[4],
+            "saves":       r[5],
+            "shares":      r[6],
         }
         for r in rows
     ]

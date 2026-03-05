@@ -36,6 +36,7 @@ export interface Category {
   category: string
   avg_views: number
   avg_engagement: number
+  avg_saves: number
   reel_count: number
 }
 
@@ -51,6 +52,9 @@ export interface GrowthPoint {
   posted_at: string
   hook_text: string | null
   video_views: number
+  engagement: number
+  saves: number
+  shares: number
 }
 
 export interface ReelInsight {
@@ -75,7 +79,17 @@ export interface Reel {
   posted_at: string | null
   created_at: string | null
   source: string | null
+  video_url: string | null
   insights: ReelInsight[]
+}
+
+export const CATEGORIES = ['Fitness', 'Beauty', 'Lifestyle', 'Fashion', 'Faith', 'Travel'] as const
+export type CategoryName = typeof CATEGORIES[number]
+
+export interface ReelTag {
+  reel_id:      string
+  category:     CategoryName | null
+  storytelling: boolean
 }
 
 export interface PredictInput {
@@ -102,18 +116,30 @@ export interface TopHooks {
 // ── API functions ──────────────────────────────────────────────────────────
 
 export const api = {
-  summary:       (source?: string) =>
-    fetcher<Summary>(`/analytics/summary${source ? `?source=${source}` : ''}`),
+  summary:       (source?: string, fromDate?: string) => {
+    const p = new URLSearchParams()
+    if (source)   p.set('source', source)
+    if (fromDate) p.set('from_date', fromDate)
+    const q = p.toString()
+    return fetcher<Summary>(`/analytics/summary${q ? `?${q}` : ''}`)
+  },
 
   topPerforming: (limit = 5, source?: string) =>
     fetcher<TopReel[]>(`/analytics/top-performing?limit=${limit}${source ? `&source=${source}` : ''}`),
 
-  categories:    () => fetcher<Category[]>('/analytics/categories'),
+  categories:    (source?: string) =>
+    fetcher<Category[]>(`/analytics/categories${source ? `?source=${source}` : ''}`),
 
-  audioTypes:    () => fetcher<AudioType[]>('/analytics/audio-types'),
+  audioTypes:    (source?: string) =>
+    fetcher<AudioType[]>(`/analytics/audio-types${source ? `?source=${source}` : ''}`),
 
-  growth:        (source?: string) =>
-    fetcher<GrowthPoint[]>(`/analytics/growth${source ? `?source=${source}` : ''}`),
+  growth:        (source?: string, fromDate?: string) => {
+    const p = new URLSearchParams()
+    if (source)   p.set('source', source)
+    if (fromDate) p.set('from_date', fromDate)
+    const q = p.toString()
+    return fetcher<GrowthPoint[]>(`/analytics/growth${q ? `?${q}` : ''}`)
+  },
 
   topHooks:      () => fetcher<TopHooks>('/analytics/top-performing-hooks'),
 
@@ -124,6 +150,28 @@ export const api = {
 
   predict:       (data: PredictInput) =>
     fetcher<PredictResult>('/predict/', { method: 'POST', body: JSON.stringify(data) }),
+
+  allTags: () =>
+    fetcher<Record<string, { category: string | null; storytelling: boolean }>>('/reel-tags'),
+
+  getTags: (reelId: string) =>
+    fetcher<ReelTag>(`/reels/${reelId}/tags`),
+
+  setTags: (reelId: string, data: { category: CategoryName | null; storytelling: boolean }) =>
+    fetcher<ReelTag>(`/reels/${reelId}/tags`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  ai: {
+    hooks:    (niche: string, angle: string) =>
+      fetcher<{ result: string }>('/ai/hooks', { method: 'POST', body: JSON.stringify({ niche, angle }) }),
+    brief:    (niche: string, idea: string) =>
+      fetcher<{ result: string }>('/ai/brief', { method: 'POST', body: JSON.stringify({ niche, idea }) }),
+    strategy: () =>
+      fetcher<{ result: string }>('/ai/strategy', { method: 'POST' }),
+    series:   (concept: string, episode_count: number) =>
+      fetcher<{ result: string }>('/ai/series', { method: 'POST', body: JSON.stringify({ concept, episode_count }) }),
+    trends:   (niche: string) =>
+      fetcher<{ result: string }>('/ai/trends', { method: 'POST', body: JSON.stringify({ niche }) }),
+  },
 }
 
 // ── Formatters ──────────────────────────────────────────────────────────────

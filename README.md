@@ -33,22 +33,90 @@ A full-stack content intelligence platform built for Instagram creators. Ingests
 ## Architecture
 
 ```
-Frontend (Next.js)
-    ↓  HTTP
-Controller Layer (FastAPI routers)
-    ↓
-Service Layer (business logic, analytics, ML orchestration)
-    ↓
-Repository Layer (SQLAlchemy queries)
-    ↓
-PostgreSQL
+          CREATOR ANALYTICS DASHBOARD  ·  System Architecture
 
-Ingestion Layer (pluggable client interface)
-    ↓
-Service Layer → Repository → Database
+
++------------------------------------------------------------------------------+
+|                         USER INTERFACE LAYER                                 |
+|                     Next.js 15  ·  TypeScript  ·  Vercel                    |
+|                                                                              |
+|  +-----------+  +--------------+  +---------+  +---------+  +-----------+  |
+|  | Dashboard |  | Reels Library|  | Predict |  | Strategy|  | Scrapbook |  |
+|  |  Overview |  |   all reels  |  | ML Form |  | Analysis|  | + Planner |  |
+|  +-----------+  +--------------+  +---------+  +---------+  +-----------+  |
+|                                                                              |
+|                      lib/api.ts  —  typed REST client                        |
++------------------------------------------------------------------------------+
+                                       |
+                            REST API  /  HTTPS
+                                       |
+                                       ▼
++------------------------------------------------------------------------------+
+|                          BACKEND API LAYER                                   |
+|                      FastAPI  ·  Python  ·  Render                           |
+|                                                                              |
+|                              CONTROLLERS                                     |
+|  +-------------------+  +---------------+  +------------+  +-------------+  |
+|  |   /analytics/*    |  |   /reels/*    |  | /predict/  |  |  /ingest/   |  |
+|  | summary · growth  |  | list · detail |  |    POST    |  | POST/DELETE |  |
+|  | categories · audio|  | insights · top|  |            |  |             |  |
+|  +-------------------+  +---------------+  +------------+  +-------------+  |
+|                                       |                                      |
+|                                       ▼                                      |
+|                                SERVICES                                      |
+|  +---------------------+  +--------------------+  +----------------------+  |
+|  |  analytics_service  |  | ingestion_service  |  |     predictor.py     |  |
+|  | summary · growth    |  | reel + insight     |  | RandomForest wrapper |  |
+|  | categories · audio  |  | upsert · idempotent|  | recommendation engine|  |
+|  +---------------------+  +--------------------+  +----------------------+  |
+|                                       |                                      |
+|                                       ▼                                      |
+|                               REPOSITORY                                     |
+|  +------------------------------------------------------------------+       |
+|  |          reel_repository  —  all SQLAlchemy ORM queries          |       |
+|  |      idempotent upserts · no business logic across boundary      |       |
+|  +------------------------------------------------------------------+       |
++------------------------------------------------------------------------------+
+                    |                                   |
+             SQLAlchemy ORM                       predict_reel()
+                    |                                   |
+                    ▼                                   ▼
++-------------------------------+       +-------------------------------+
+|         PostgreSQL            |       |          ML ENGINE            |
+|         Neon  (cloud)         |       |    RandomForestRegressor      |
+|                               |       |         scikit-learn          |
+|   reels                       |       |                               |
+|   ├── id  (PK)                |       |   Features:                   |
+|   ├── hook_text               |       |   · duration_sec              |
+|   ├── category                |       |   · hook_strength_score       |
+|   ├── audio_type              |       |   · niche  (one-hot encoded)  |
+|   └── posted_at               |       |   · music_type  (one-hot)     |
+|                               |       |   · is_weekend                |
+|   reel_insights               |       |                               |
+|   ├── impressions             |       |   Output:                     |
+|   ├── reach                   |       |   · predicted_views           |
+|   ├── engagement              |       |   · virality_probability      |
+|   ├── saves                   |       |   · performance_category      |
+|   └── video_views             |       |   · recommendation            |
++-------------------------------+       +-------------------------------+
+
+
++------------------------------------------------------------------------------+
+|                    INGESTION LAYER  ·  Strategy Pattern                      |
+|                                                                              |
+|  +-------------------------------------+  +--------------------------------+ |
+|  |  SeedClient  ✓  (currently active)  |  | InstagramClient  ⚡  (ready)   | |
+|  |                                     |  |                                | |
+|  |  ig_content_log.csv                 |  | Instagram Graph API            | |
+|  |  9 real personal Instagram reels    |  | awaiting IG_ACCESS_TOKEN       | |
+|  |                                     |  | swap 1 line to activate        | |
+|  |  viral_shorts_dataset.csv           |  |                                | |
+|  |  400 rows  ·  ML model training     |  | instagram_client.py  built     | |
+|  +-------------------------------------+  +--------------------------------+ |
++------------------------------------------------------------------------------+
 ```
 
-The backend follows a strict **Controller → Service → Repository** pattern. No layer reaches past its boundary — controllers never touch the database, repositories never contain business logic.
+The backend follows a strict **Controller → Service → Repository** pattern — no layer reaches past its boundary. The ingestion layer uses the **strategy pattern**: `SeedClient` (CSV) and `InstagramClient` (Graph API) share the same interface, making the data source swappable with one line change.
 
 ---
 
@@ -225,7 +293,8 @@ Nothing else changes.
 |-------|-------------|
 | `/` | Dashboard — KPIs, growth trend chart, top reels, category + audio breakdown |
 | `/reels` | Reels Library — grid of personal reels with key metrics |
-| `/reels/[id]` | Reel Detail — full metrics breakdown, engagement rates, hook display |
+| `/scrapbook` | Freeform creative canvas — Excalidraw, localStorage persistence, exportable |
+| `/planner` | Content calendar — CRUD for posts, brand deals, series, batch sessions |
 | `/predict` | ML Predictor — form input → predicted views, virality score, recommendations |
 | `/strategy` | Strategy — category intelligence, hook analysis, audio type performance |
 
