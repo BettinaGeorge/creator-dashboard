@@ -235,7 +235,7 @@ function HookLab() {
 }
 
 function ContentBrief() {
-  const [niche, setNiche]   = useState<CategoryName>(CATEGORIES[0])
+  const [niche, setNiche]   = useState<string>(CATEGORIES[0])
   const [idea, setIdea]     = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
@@ -446,7 +446,7 @@ function SeriesPlanner() {
 }
 
 function TrendScout() {
-  const [niche, setNiche]   = useState<CategoryName>(CATEGORIES[0])
+  const [niche, setNiche]   = useState<string>(CATEGORIES[0])
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
 
