@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api, getPlannerContext, CATEGORIES, fmtViews, GrowthPoint } from '@/lib/api'
+import { api, getPlannerContext, CATEGORIES, CategoryName, fmtViews, GrowthPoint } from '@/lib/api'
 
 type Tool = 'hooks' | 'brief' | 'strategy' | 'series' | 'trends'
 
