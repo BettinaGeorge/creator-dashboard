@@ -161,17 +161,75 @@ export const api = {
     fetcher<ReelTag>(`/reels/${reelId}/tags`, { method: 'PUT', body: JSON.stringify(data) }),
 
   ai: {
-    hooks:    (niche: string, angle: string) =>
-      fetcher<{ result: string }>('/ai/hooks', { method: 'POST', body: JSON.stringify({ niche, angle }) }),
-    brief:    (niche: string, idea: string) =>
-      fetcher<{ result: string }>('/ai/brief', { method: 'POST', body: JSON.stringify({ niche, idea }) }),
-    strategy: () =>
-      fetcher<{ result: string }>('/ai/strategy', { method: 'POST' }),
-    series:   (concept: string, episode_count: number) =>
-      fetcher<{ result: string }>('/ai/series', { method: 'POST', body: JSON.stringify({ concept, episode_count }) }),
-    trends:   (niche: string) =>
-      fetcher<{ result: string }>('/ai/trends', { method: 'POST', body: JSON.stringify({ niche }) }),
+    hooks:    (niche: string, angle: string, planner_context = '') =>
+      fetcher<{ result: string }>('/ai/hooks', { method: 'POST', body: JSON.stringify({ niche, angle, planner_context }) }),
+    brief:    (niche: string, idea: string, planner_context = '') =>
+      fetcher<{ result: string }>('/ai/brief', { method: 'POST', body: JSON.stringify({ niche, idea, planner_context }) }),
+    strategy: (planner_context = '') =>
+      fetcher<{ result: string }>('/ai/strategy', { method: 'POST', body: JSON.stringify({ planner_context }) }),
+    series:   (concept: string, episode_count: number, planner_context = '') =>
+      fetcher<{ result: string }>('/ai/series', { method: 'POST', body: JSON.stringify({ concept, episode_count, planner_context }) }),
+    trends:   (niche: string, planner_context = '') =>
+      fetcher<{ result: string }>('/ai/trends', { method: 'POST', body: JSON.stringify({ niche, planner_context }) }),
   },
+}
+
+// ── Planner context serialiser ───────────────────────────────────────────────
+
+function loadLS<T>(key: string): T[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(key) || '[]') } catch { return [] }
+}
+
+export function getPlannerContext(): string {
+  const content  = loadLS<any>('planner_content')
+  const deals    = loadLS<any>('planner_deals')
+  const series   = loadLS<any>('planner_series')
+
+  const lines: string[] = ['## Content Planner Context\n']
+
+  // Upcoming scheduled content — next 30 days, not yet posted
+  const now   = new Date()
+  const in30  = new Date(now.getTime() + 30 * 86_400_000)
+  const upcoming = content
+    .filter((c: any) => c.status !== 'posted' && c.scheduledDate)
+    .filter((c: any) => { const d = new Date(c.scheduledDate); return d >= now && d <= in30 })
+    .sort((a: any, b: any) => a.scheduledDate.localeCompare(b.scheduledDate))
+
+  if (upcoming.length > 0) {
+    lines.push('**Upcoming content (next 30 days):**')
+    upcoming.forEach((c: any) => {
+      const date = new Date(c.scheduledDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      const hook = c.hook ? ` — hook: "${c.hook}"` : ''
+      const s    = c.series ? ` [${c.series}]` : ''
+      lines.push(`- [${date}]${s} "${c.title}" · ${c.type} · ${c.status}${hook}`)
+    })
+    lines.push('')
+  }
+
+  // Active brand deals
+  const activeDeals = deals.filter((d: any) => !['paid', 'delivered'].includes(d.status))
+  if (activeDeals.length > 0) {
+    lines.push('**Active brand deals:**')
+    activeDeals.forEach((d: any) => {
+      const deadline = new Date(d.deadline + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+      lines.push(`- ${d.brand}: ${d.deliverable} — due ${deadline} · ${d.status.replace('_', ' ')}`)
+    })
+    lines.push('')
+  }
+
+  // Active series
+  const activeSeries = series.filter((s: any) => s.status === 'active')
+  if (activeSeries.length > 0) {
+    lines.push('**Active series:**')
+    activeSeries.forEach((s: any) => {
+      lines.push(`- "${s.name}" (${s.episodeCount} eps) — ${s.theme}`)
+    })
+    lines.push('')
+  }
+
+  const hasData = upcoming.length > 0 || activeDeals.length > 0 || activeSeries.length > 0
+  return hasData ? lines.join('\n') : ''
 }
 
 // ── Formatters ──────────────────────────────────────────────────────────────

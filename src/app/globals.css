@@ -591,6 +591,7 @@ body::after {
   align-items: flex-end;
   gap: 6px;
   position: relative;
+  min-height: 140px;
 }
 
 .chart-area::before {
@@ -707,7 +708,7 @@ body::after {
 ═══════════════════════════════════════════ */
 .bottom-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 360px;
   gap: 16px;
   animation: fadeUp 0.5s ease both;
   animation-delay: 0.35s;

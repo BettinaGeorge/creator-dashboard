@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { api, CATEGORIES, fmtViews, GrowthPoint } from '@/lib/api'
+import { api, getPlannerContext, CATEGORIES, fmtViews, GrowthPoint } from '@/lib/api'
 
 type Tool = 'hooks' | 'brief' | 'strategy' | 'series' | 'trends'
 
@@ -13,7 +13,92 @@ const TOOLS: { id: Tool; label: string; description: string }[] = [
   { id: 'trends',   label: 'Trend Scout',        description: 'What\'s working in your niches' },
 ]
 
+function renderInline(text: string, key?: number): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/)
+  return parts.map((part, i) =>
+    part.startsWith('**') && part.endsWith('**')
+      ? <strong key={i} style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{part.slice(2, -2)}</strong>
+      : <span key={i}>{part}</span>
+  )
+}
+
 function ResultPanel({ text }: { text: string }) {
+  const lines = text.split('\n')
+  const elements: React.ReactNode[] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i]
+
+    if (/^#{1,3}\s/.test(line)) {
+      const content = line.replace(/^#+\s/, '')
+      elements.push(
+        <div key={i} style={{
+          fontFamily: 'var(--font-mono)', fontSize: 12,
+          color: 'var(--accent-soft)', fontWeight: 600,
+          marginTop: elements.length > 0 ? 16 : 0, marginBottom: 4,
+          letterSpacing: '0.04em', textTransform: 'uppercase' as const,
+        }}>
+          {renderInline(content)}
+        </div>
+      )
+      i++
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      const items: string[] = []
+      while (i < lines.length && (lines[i].startsWith('- ') || lines[i].startsWith('* '))) {
+        items.push(lines[i].slice(2))
+        i++
+      }
+      elements.push(
+        <ul key={`ul-${i}`} style={{ margin: '4px 0 8px', padding: 0, listStyle: 'none' }}>
+          {items.map((item, j) => (
+            <li key={j} style={{
+              fontFamily: 'var(--font-mono)', fontSize: 12,
+              color: 'var(--text-secondary)', lineHeight: 1.75,
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+            }}>
+              <span style={{ color: 'var(--accent-soft)', flexShrink: 0, marginTop: 1 }}>–</span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ul>
+      )
+    } else if (/^\d+\.\s/.test(line)) {
+      const items: string[] = []
+      while (i < lines.length && /^\d+\.\s/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s/, ''))
+        i++
+      }
+      elements.push(
+        <ol key={`ol-${i}`} style={{ margin: '4px 0 8px', padding: 0, listStyle: 'none', counterReset: 'item' }}>
+          {items.map((item, j) => (
+            <li key={j} style={{
+              fontFamily: 'var(--font-mono)', fontSize: 12,
+              color: 'var(--text-secondary)', lineHeight: 1.75,
+              display: 'flex', gap: 10, alignItems: 'flex-start',
+            }}>
+              <span style={{ color: 'var(--accent-soft)', flexShrink: 0, minWidth: 18, marginTop: 1 }}>{j + 1}.</span>
+              <span>{renderInline(item)}</span>
+            </li>
+          ))}
+        </ol>
+      )
+    } else if (line.trim() === '') {
+      elements.push(<div key={i} style={{ height: 6 }} />)
+      i++
+    } else {
+      elements.push(
+        <div key={i} style={{
+          fontFamily: 'var(--font-mono)', fontSize: 12,
+          color: 'var(--text-secondary)', lineHeight: 1.8,
+        }}>
+          {renderInline(line)}
+        </div>
+      )
+      i++
+    }
+  }
+
   return (
     <div style={{
       marginTop: 20,
@@ -21,14 +106,9 @@ function ResultPanel({ text }: { text: string }) {
       background: 'var(--bg-2)',
       border: '1px solid var(--accent-border)',
       borderRadius: 6,
-      fontFamily: 'var(--font-mono)',
-      fontSize: 12,
-      color: 'var(--text-secondary)',
-      lineHeight: 1.8,
-      whiteSpace: 'pre-wrap',
       animation: 'fadeUp 0.3s ease both',
     }}>
-      {text}
+      {elements}
     </div>
   )
 }
@@ -104,7 +184,7 @@ function HookLab() {
     if (!angle.trim()) return
     setLoading(true); setResult('')
     try {
-      const r = await api.ai.hooks(niche, angle)
+      const r = await api.ai.hooks(niche, angle, getPlannerContext())
       setResult(r.result)
     } catch (e: any) {
       setResult(`Error: ${e.message}`)
@@ -164,7 +244,7 @@ function ContentBrief() {
     if (!idea.trim()) return
     setLoading(true); setResult('')
     try {
-      const r = await api.ai.brief(niche, idea)
+      const r = await api.ai.brief(niche, idea, getPlannerContext())
       setResult(r.result)
     } catch (e: any) {
       setResult(`Error: ${e.message}`)
@@ -244,7 +324,7 @@ function StrategyAdvisor() {
   const run = async () => {
     setLoading(true); setResult('')
     try {
-      const r = await api.ai.strategy()
+      const r = await api.ai.strategy(getPlannerContext())
       setResult(r.result)
     } catch (e: any) {
       setResult(`Error: ${e.message}`)
@@ -314,7 +394,7 @@ function SeriesPlanner() {
     if (!concept.trim()) return
     setLoading(true); setResult('')
     try {
-      const r = await api.ai.series(concept, episodes)
+      const r = await api.ai.series(concept, episodes, getPlannerContext())
       setResult(r.result)
     } catch (e: any) {
       setResult(`Error: ${e.message}`)
@@ -373,7 +453,7 @@ function TrendScout() {
   const run = async () => {
     setLoading(true); setResult('')
     try {
-      const r = await api.ai.trends(niche)
+      const r = await api.ai.trends(niche, getPlannerContext())
       setResult(r.result)
     } catch (e: any) {
       setResult(`Error: ${e.message}`)

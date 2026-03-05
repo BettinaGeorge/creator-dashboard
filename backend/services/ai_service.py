@@ -3,6 +3,7 @@ AI Studio service — calls Claude to power content workflow features.
 Requires ANTHROPIC_API_KEY in .env
 """
 import anthropic
+from sqlalchemy.orm import Session
 from core.config import settings
 
 CREATOR_CONTEXT = """You are an AI content strategist for Bettina George, a Nigerian international
@@ -26,9 +27,61 @@ def _client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
 
 
-def generate_hooks(niche: str, angle: str) -> dict:
+def build_data_context(db: Session) -> str:
+    """Serialize live analytics into a structured markdown block for prompt injection."""
+    from services.analytics_service import (
+        get_summary,
+        get_category_performance,
+        get_top_performing_reels,
+        get_audio_type_performance,
+    )
+
+    summary = get_summary(db, source="personal")
+    categories = get_category_performance(db, source="personal")
+    top_reels = get_top_performing_reels(db, limit=5, source="personal")
+    audio = get_audio_type_performance(db, source="personal")
+
+    lines = ["\n\n## Bettina's Live Performance Data\n"]
+
+    lines.append(
+        f"**Overview:** {summary['total_reels']} personal reels · "
+        f"{summary['total_views']:,} total views · "
+        f"{summary['avg_views']:,} avg views/reel · "
+        f"{summary['avg_saves']} avg saves/reel\n"
+    )
+
+    if categories:
+        lines.append("**Niche performance (ranked by avg views):**")
+        for c in categories[:6]:
+            lines.append(
+                f"- {c['category']}: {c['avg_views']:,} avg views "
+                f"({c['reel_count']} reels, {c['avg_saves']} avg saves)"
+            )
+        lines.append("")
+
+    if top_reels:
+        lines.append("**Top performing reels:**")
+        for r in top_reels[:4]:
+            hook = r["hook_text"] or "(no hook text)"
+            lines.append(
+                f'- [{r["category"]}] "{hook}" — {r["video_views"]:,} views'
+            )
+        lines.append("")
+
+    if audio:
+        lines.append("**Audio type performance:**")
+        for a in audio[:3]:
+            lines.append(
+                f"- {a['audio_type']}: {a['avg_views']:,} avg views ({a['reel_count']} reels)"
+            )
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+def generate_hooks(niche: str, angle: str, data_context: str = "") -> dict:
     """Generate 5 hook variations for a given niche and content angle."""
-    prompt = f"""{CREATOR_CONTEXT}
+    prompt = f"""{CREATOR_CONTEXT}{data_context}
 
 Generate 5 compelling hook variations for a reel in the **{niche}** niche.
 Content angle: "{angle}"
@@ -42,15 +95,15 @@ Format as a clean numbered list. Be specific to Bettina's voice — not generic.
 
     message = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=800,
+        max_tokens=1500,
         messages=[{"role": "user", "content": prompt}],
     )
     return {"result": message.content[0].text}
 
 
-def generate_brief(niche: str, idea: str) -> dict:
+def generate_brief(niche: str, idea: str, data_context: str = "") -> dict:
     """Generate a full content brief for a reel idea."""
-    prompt = f"""{CREATOR_CONTEXT}
+    prompt = f"""{CREATOR_CONTEXT}{data_context}
 
 Create a content brief for a **{niche}** reel with this idea: "{idea}"
 
@@ -66,15 +119,15 @@ Keep it practical and shootable — she films solo with her phone."""
 
     message = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=700,
+        max_tokens=1200,
         messages=[{"role": "user", "content": prompt}],
     )
     return {"result": message.content[0].text}
 
 
-def generate_strategy_advice(stats: dict) -> dict:
+def generate_strategy_advice(stats: dict, data_context: str = "") -> dict:
     """Generate a personalised strategy read based on real analytics data."""
-    prompt = f"""{CREATOR_CONTEXT}
+    prompt = f"""{CREATOR_CONTEXT}{data_context}
 
 Here are Bettina's current content analytics (personal reels only):
 - Total reels: {stats.get('total_reels', 0)}
@@ -95,15 +148,15 @@ Be direct. Skip the fluff. Talk to her like a strategist, not a cheerleader."""
 
     message = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=600,
+        max_tokens=1500,
         messages=[{"role": "user", "content": prompt}],
     )
     return {"result": message.content[0].text}
 
 
-def generate_series(concept: str, episode_count: int = 5) -> dict:
+def generate_series(concept: str, episode_count: int = 5, data_context: str = "") -> dict:
     """Generate a storytelling series plan."""
-    prompt = f"""{CREATOR_CONTEXT}
+    prompt = f"""{CREATOR_CONTEXT}{data_context}
 
 Bettina wants to build a storytelling series. Concept: "{concept}"
 
@@ -123,15 +176,15 @@ Lean into her Nigerian background and personality where it fits naturally."""
 
     message = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=900,
+        max_tokens=2000,
         messages=[{"role": "user", "content": prompt}],
     )
     return {"result": message.content[0].text}
 
 
-def generate_trend_scout(niche: str) -> dict:
+def generate_trend_scout(niche: str, data_context: str = "") -> dict:
     """Surface content formats and angles trending in the given niche."""
-    prompt = f"""{CREATOR_CONTEXT}
+    prompt = f"""{CREATOR_CONTEXT}{data_context}
 
 What content formats, angles, and hooks are currently performing well for creators in the
 **{niche}** niche on Instagram Reels and TikTok?
@@ -147,7 +200,7 @@ Note: your knowledge has a cutoff so flag anything that may have shifted recentl
 
     message = _client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=700,
+        max_tokens=1200,
         messages=[{"role": "user", "content": prompt}],
     )
     return {"result": message.content[0].text}

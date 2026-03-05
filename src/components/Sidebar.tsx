@@ -33,8 +33,8 @@ const analyticsNav = [
     ),
   },
   {
-    href: '/strategy',
-    label: 'Strategy',
+    href: '/insights',
+    label: 'Insights',
     icon: (
       <svg className="nav-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
         <polyline points="1,12 5,7 8,9 12,4 15,6"/>

@@ -1,8 +1,8 @@
-# Creator Content Analytics & Performance Prediction
+# Creator Content Intelligence Platform
 
-A full-stack content intelligence platform built for Instagram creators. Ingests reel metadata and engagement metrics, performs analytics across content categories and audio types, and uses a trained machine learning model to predict reel performance before posting.
+A full-stack content analytics and AI studio platform built for Instagram creators. Ingests real reel metadata from Instagram's data export, stores engagement data in PostgreSQL, surfaces performance patterns across niches and posting history, and uses Claude AI to power a full content creation workflow — hook writing, briefs, series planning, strategy reads, and trend scouting.
 
-> **Status:** Fully functional — backend complete, frontend wired to live data.
+> **Status:** Fully functional — backend complete, frontend wired to live data, AI Studio active.
 >
 > **Live Demo:** [creator-dashboard-indol.vercel.app](https://creator-dashboard-indol.vercel.app/)
 
@@ -10,11 +10,12 @@ A full-stack content intelligence platform built for Instagram creators. Ingests
 
 ## What It Does
 
-1. **Ingests** reel data from a pluggable ingestion layer (currently CSV-backed; Instagram Graph API ready)
+1. **Ingests** real reel data from Instagram's data export (80 actual reels) via a pluggable ingestion layer — architecture is ready to switch to live Graph API metrics in one line
 2. **Stores** structured reel metadata and multi-field engagement metrics in PostgreSQL
-3. **Analyzes** performance patterns across categories, audio types, hook text, and growth over time
-4. **Predicts** reel performance before posting using a trained RandomForest regression model
-5. **Displays** insights in a creator-facing analytics dashboard
+3. **Analyzes** performance across niches, growth over time, posting cadence, and hook patterns
+4. **Tags** reels with manual niche labels (Fitness, Beauty, Lifestyle, Fashion, Faith, Travel) + Storytelling format flag — tags survive database reingests via a no-FK design
+5. **Creates** with an AI Studio powered by Claude: hook writing, content briefs, strategy reads, series planning, trend scouting
+6. **Displays** everything in a creator-facing dashboard with collapsible sidebar, dark/light theme, and responsive layout
 
 ---
 
@@ -22,28 +23,35 @@ A full-stack content intelligence platform built for Instagram creators. Ingests
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | Next.js 15 (App Router), TypeScript, Tailwind CSS |
+| Frontend | Next.js 15 (App Router), TypeScript, custom CSS |
 | Backend API | FastAPI (Python) |
 | Database | PostgreSQL + SQLAlchemy ORM |
-| ML | scikit-learn (RandomForestRegressor) |
-| Data | Personal Instagram export + viral shorts dataset (400 rows) |
+| AI | Anthropic Claude API (claude-sonnet-4-6) |
+| Data | 80 real Instagram reels (from account export) + viral shorts dataset (400 rows) |
 
 ---
 
 ## Architecture
 
 ```
-          CREATOR ANALYTICS DASHBOARD  ·  System Architecture
+          CREATOR CONTENT INTELLIGENCE  ·  System Architecture
 
 
 +------------------------------------------------------------------------------+
 |                         USER INTERFACE LAYER                                 |
 |                     Next.js 15  ·  TypeScript  ·  Vercel                    |
 |                                                                              |
-|  +-----------+  +--------------+  +---------+  +---------+  +-----------+  |
-|  | Dashboard |  | Reels Library|  | Predict |  | Strategy|  | Scrapbook |  |
-|  |  Overview |  |   all reels  |  | ML Form |  | Analysis|  | + Planner |  |
-|  +-----------+  +--------------+  +---------+  +---------+  +-----------+  |
+|  +-----------+  +-----------+  +-----------+  +--------+  +----------+      |
+|  | Dashboard |  |  Reels    |  | Insights  |  | Studio |  | Scrapbook|      |
+|  | /         |  | /reels    |  | /insights |  | /studio|  | /scrap.. |      |
+|  |           |  | /reels/id |  |           |  |        |  |          |      |
+|  +-----------+  +-----------+  +-----------+  +--------+  +----------+      |
+|                                                                              |
+|  +-----------+  +-----------+                                                |
+|  | Planner   |  | Predictor |                                                |
+|  | /planner  |  | /predict  |                                                |
+|  |           |  | (paused)  |                                                |
+|  +-----------+  +-----------+                                                |
 |                                                                              |
 |                      lib/api.ts  —  typed REST client                        |
 +------------------------------------------------------------------------------+
@@ -56,67 +64,92 @@ A full-stack content intelligence platform built for Instagram creators. Ingests
 |                      FastAPI  ·  Python  ·  Render                           |
 |                                                                              |
 |                              CONTROLLERS                                     |
-|  +-------------------+  +---------------+  +------------+  +-------------+  |
-|  |   /analytics/*    |  |   /reels/*    |  | /predict/  |  |  /ingest/   |  |
-|  | summary · growth  |  | list · detail |  |    POST    |  | POST/DELETE |  |
-|  | categories · audio|  | insights · top|  |            |  |             |  |
-|  +-------------------+  +---------------+  +------------+  +-------------+  |
+|  +------------------+  +------------------+  +------------------+           |
+|  |  /analytics/*    |  |   /reels/*       |  |   /insights      |           |
+|  | summary · growth |  | GET list         |  | POST create      |           |
+|  | categories · top |  | GET /{id}        |  | GET /{id}/insights|          |
+|  | hooks · audio    |  | POST create      |  +------------------+           |
+|  +------------------+  +------------------+                                 |
+|                                                                              |
+|  +------------------+  +------------------+  +------------------+           |
+|  |  /reels/{id}/    |  |   /reel-tags     |  |   /ai/*          |           |
+|  |  tags GET · PUT  |  |  batch tag map   |  | hooks · brief    |           |
+|  +------------------+  +------------------+  | strategy · series|           |
+|                                              | trends           |           |
+|  +------------------+  +------------------+  +------------------+           |
+|  |   /predict/      |  |   /ingest/       |                                 |
+|  |   POST (paused)  |  | POST / DELETE    |                                 |
+|  +------------------+  +------------------+                                 |
 |                                       |                                      |
 |                                       ▼                                      |
-|                                SERVICES                                      |
-|  +---------------------+  +--------------------+  +----------------------+  |
-|  |  analytics_service  |  | ingestion_service  |  |     predictor.py     |  |
-|  | summary · growth    |  | reel + insight     |  | RandomForest wrapper |  |
-|  | categories · audio  |  | upsert · idempotent|  | recommendation engine|  |
-|  +---------------------+  +--------------------+  +----------------------+  |
+|                                  SERVICES                                    |
+|  +--------------+  +--------------+  +----------------+  +--------------+   |
+|  | analytics_svc|  | reel_svc     |  | reel_insight   |  | ai_svc       |   |
+|  | summary      |  | CRUD · fetch |  | _svc           |  | Claude API   |   |
+|  | growth       |  |              |  | create · get   |  | 5 tools      |   |
+|  | categories   |  +--------------+  +----------------+  +--------------+   |
+|  +--------------+                                                            |
+|                                                                              |
+|  +--------------+  +--------------+                                          |
+|  | ingestion_svc|  | prediction   |                                          |
+|  | upsert       |  | _svc         |                                          |
+|  | re-tag       |  | RandomForest |                                          |
+|  +--------------+  +--------------+                                          |
 |                                       |                                      |
 |                                       ▼                                      |
-|                               REPOSITORY                                     |
-|  +------------------------------------------------------------------+       |
-|  |          reel_repository  —  all SQLAlchemy ORM queries          |       |
-|  |      idempotent upserts · no business logic across boundary      |       |
-|  +------------------------------------------------------------------+       |
+|                               REPOSITORIES                                   |
+|  +--------------------+  +------------------------+  +------------------+   |
+|  |  reel_repository   |  | reel_insight_repository|  | reel_tag_repo    |   |
+|  |  CRUD · filter     |  | create · get by reel   |  | upsert · get_all |   |
+|  +--------------------+  +------------------------+  +------------------+   |
 +------------------------------------------------------------------------------+
-                    |                                   |
-             SQLAlchemy ORM                       predict_reel()
-                    |                                   |
-                    ▼                                   ▼
-+-------------------------------+       +-------------------------------+
-|         PostgreSQL            |       |          ML ENGINE            |
-|         Neon  (cloud)         |       |    RandomForestRegressor      |
-|                               |       |         scikit-learn          |
-|   reels                       |       |                               |
-|   ├── id  (PK)                |       |   Features:                   |
-|   ├── hook_text               |       |   · duration_sec              |
-|   ├── category                |       |   · hook_strength_score       |
-|   ├── audio_type              |       |   · niche  (one-hot encoded)  |
-|   └── posted_at               |       |   · music_type  (one-hot)     |
-|                               |       |   · is_weekend                |
-|   reel_insights               |       |                               |
-|   ├── impressions             |       |   Output:                     |
-|   ├── reach                   |       |   · predicted_views           |
-|   ├── engagement              |       |   · virality_probability      |
-|   ├── saves                   |       |   · performance_category      |
-|   └── video_views             |       |   · recommendation            |
-+-------------------------------+       +-------------------------------+
+          |                          |                        |
+   SQLAlchemy ORM             Anthropic SDK            scikit-learn
+          |                          |                        |
+          ▼                          ▼                        ▼
++-------------------+    +----------------------+    +-------------------+
+|    PostgreSQL     |    | Claude sonnet-4-6    |    | RandomForest      |
+|    Neon (cloud)   |    | Anthropic API        |    | model.pkl         |
+|                   |    |                      |    | features.pkl      |
+|  reels            |    | Tools:               |    |                   |
+|  ├── id (PK)      |    | · generate_hooks()   |    | Features:         |
+|  ├── hook_text    |    | · generate_brief()   |    | duration_sec      |
+|  ├── category     |    | · generate_strategy()|    | hook_strength     |
+|  ├── duration     |    | · generate_series()  |    | niche             |
+|  └── source       |    | · generate_trends()  |    | music_type        |
+|                   |    |                      |    | is_weekend        |
+|  reel_insights    |    | Context: creator     |    |                   |
+|  ├── engagement   |    | pillars + live       |    | Target:           |
+|  ├── saves        |    | analytics injected   |    | views_total       |
+|  └── video_views  |    | at call time         |    |                   |
+|                   |    +----------------------+    | (paused — needs   |
+|  reel_tags (no FK)|                               | real Graph API    |
+|  ├── reel_id (PK) |                               | data to train on) |
+|  ├── category     |                               +-------------------+
+|  ├── storytelling |
+|  └── updated_at   |
++-------------------+
 
 
 +------------------------------------------------------------------------------+
 |                    INGESTION LAYER  ·  Strategy Pattern                      |
 |                                                                              |
 |  +-------------------------------------+  +--------------------------------+ |
-|  |  SeedClient  ✓  (currently active)  |  | InstagramClient  ⚡  (ready)   | |
+|  |  InstagramExportClient  ✓  (active) |  | InstagramClient  ⚡  (ready)   | |
 |  |                                     |  |                                | |
-|  |  ig_content_log.csv                 |  | Instagram Graph API            | |
-|  |  9 real personal Instagram reels    |  | awaiting IG_ACCESS_TOKEN       | |
-|  |                                     |  | swap 1 line to activate        | |
-|  |  viral_shorts_dataset.csv           |  |                                | |
-|  |  400 rows  ·  ML model training     |  | instagram_client.py  built     | |
+|  |  reels.json                         |  | Instagram Graph API            | |
+|  |  80 real reels from IG export       |  | awaiting IG_ACCESS_TOKEN       | |
+|  |  real captions, timestamps, videos  |  | swap 1 line to activate        | |
+|  |  metrics estimated from account     |  |                                | |
+|  |  aggregates (Graph API for actuals) |  | instagram_client.py  built     | |
+|  |                                     |  |                                | |
+|  |  + viral_shorts_dataset.csv         |  |                                | |
+|  |  400 rows  ·  analytics coverage    |  |                                | |
 |  +-------------------------------------+  +--------------------------------+ |
+|                                                                              |
+|  After ingestion: manual tags from reel_tags are re-applied automatically   |
 +------------------------------------------------------------------------------+
 ```
-
-The backend follows a strict **Controller → Service → Repository** pattern — no layer reaches past its boundary. The ingestion layer uses the **strategy pattern**: `SeedClient` (CSV) and `InstagramClient` (Graph API) share the same interface, making the data source swappable with one line change.
 
 ---
 
@@ -127,38 +160,36 @@ backend/
 ├── controllers/          # Route definitions, request/response handling
 │   ├── reel_controller.py
 │   ├── reel_insight_controller.py
+│   ├── reel_tag_controller.py    # GET/PUT /reels/{id}/tags, GET /reel-tags
 │   ├── analytics_controller.py
-│   ├── prediction_controller.py
+│   ├── ai_controller.py          # POST /ai/hooks|brief|strategy|series|trends
 │   └── ingestion_controller.py
-├── services/             # Business logic, analytics computation, ML calls
+├── services/             # Business logic, analytics computation, AI calls
 │   ├── reel_service.py
 │   ├── reel_insight_service.py
 │   ├── analytics_service.py
-│   ├── prediction_service.py
-│   └── ingestion_service.py
+│   ├── ai_service.py             # Claude API integration — all 5 studio tools
+│   └── ingestion_service.py      # Re-applies manual tags after each ingest
 ├── repositories/         # SQLAlchemy CRUD, all DB queries live here
 │   ├── reel_repository.py
-│   └── reel_insight_repository.py
+│   ├── reel_insight_repository.py
+│   └── reel_tag_repository.py    # upsert/get/get_all for reel_tags table
 ├── models/               # SQLAlchemy ORM models
 │   ├── reel.py
-│   └── reel_insight.py
+│   ├── reel_insight.py
+│   └── reel_tag.py               # No FK to reels — survives ingest/clear
 ├── schemas/              # Pydantic request/response schemas
 │   ├── reel_schema.py
-│   └── reel_insight_schema.py
+│   ├── reel_insight_schema.py
+│   └── reel_tag_schema.py
 ├── integrations/         # Pluggable ingestion interface
-│   ├── base_client.py        # Abstract base class
-│   ├── seed_client.py        # CSV-backed implementation (active)
-│   └── instagram_client.py   # Instagram Graph API stub (ready to activate)
-├── ml/
-│   ├── train_model.py    # Model training script
-│   ├── predictor.py      # Prediction logic + recommendation engine
-│   ├── features.py       # Feature engineering utilities
-│   ├── model.pkl         # Trained RandomForest model
-│   └── features.pkl      # Saved feature column names
+│   ├── base_client.py
+│   ├── instagram_export_client.py   # Active — reads from local IG data export
+│   └── instagram_client.py          # Stubbed — Graph API, ready to activate
 ├── core/
-│   ├── config.py         # Environment config
-│   └── database.py       # SQLAlchemy engine + session
-└── main.py               # App entry point, router registration, CORS
+│   ├── config.py         # Includes ANTHROPIC_API_KEY
+│   └── database.py
+└── main.py
 ```
 
 ---
@@ -168,28 +199,36 @@ backend/
 ### `reels`
 | Column | Type | Notes |
 |--------|------|-------|
-| id | VARCHAR (PK) | Instagram reel shortcode or generated ID |
-| caption | TEXT | Reel caption or topic |
-| hook_text | TEXT | Opening line or on-screen text |
-| duration | INTEGER | Duration in seconds |
-| category | VARCHAR | Content category / niche |
-| audio_type | VARCHAR | Trending / Viral Track / Remix / Original |
-| posted_at | DATETIME | Date posted |
+| id | VARCHAR (PK) | Instagram media ID extracted from export |
+| caption | TEXT | Reel caption |
+| hook_text | TEXT | First line of caption, stripped of @mentions and hashtags |
+| duration | INTEGER | Seconds — null for export-sourced reels (requires Graph API) |
+| category | VARCHAR | Content niche — set by tag writes or caption inference |
+| audio_type | VARCHAR | |
+| posted_at | DATETIME | |
 | source | VARCHAR | `personal` or `synthetic` |
-| created_at | DATETIME | Record created timestamp |
+| created_at | DATETIME | |
 
 ### `reel_insights`
 | Column | Type | Notes |
 |--------|------|-------|
 | id | INTEGER (PK) | Auto-increment |
 | reel_id | VARCHAR (FK) | References reels.id |
-| impressions | INTEGER | Total impressions |
+| impressions | INTEGER | |
 | reach | INTEGER | Unique accounts reached |
 | engagement | INTEGER | Likes + comments + saves + shares |
-| saves | INTEGER | Save count |
-| shares | INTEGER | Share count |
-| video_views | INTEGER | Total video plays |
-| snapshot_time | DATETIME | When metrics were captured |
+| saves | INTEGER | |
+| shares | INTEGER | |
+| video_views | INTEGER | |
+| snapshot_time | DATETIME | |
+
+### `reel_tags`
+| Column | Type | Notes |
+|--------|------|-------|
+| reel_id | VARCHAR (PK) | **No FK** — survives `DELETE /ingest/clear` |
+| category | VARCHAR | Fitness / Beauty / Lifestyle / Fashion / Faith / Travel |
+| storytelling | BOOLEAN | Additive format tag — combinable with any niche |
+| updated_at | DATETIME | |
 
 ---
 
@@ -197,93 +236,83 @@ backend/
 
 ### Reels
 ```
-POST   /reels                      Create a reel
-GET    /reels?source=personal      List reels (filter by source)
-GET    /reels/{id}                 Get reel with insights
-POST   /insights                   Add insight snapshot
-GET    /reels/{id}/insights        Get all insight snapshots for a reel
+POST   /reels                        Create a reel
+GET    /reels?source=personal        List reels (filter by source)
+GET    /reels/{id}                   Get reel with insights
+POST   /insights                     Add insight snapshot
+GET    /reels/{id}/insights          Get all insight snapshots for a reel
+GET    /reels/{id}/tags              Get manual tags for a reel
+PUT    /reels/{id}/tags              Set manual tags (category + storytelling)
+GET    /reel-tags                    Batch: all tags as {reel_id: {category, storytelling}}
 ```
 
 ### Analytics
 ```
-GET    /analytics/summary?source=personal    Overall performance stats
-GET    /analytics/categories                 Avg views/engagement by category
+GET    /analytics/summary?source=personal    Overall KPIs
+GET    /analytics/categories?source=personal Avg views/saves/engagement by niche
 GET    /analytics/audio-types               Avg views/engagement by audio type
-GET    /analytics/top-performing?limit=10   Top reels by view count
-GET    /analytics/growth?source=personal    Chronological view count trend
+GET    /analytics/top-performing?limit=5    Top reels by view count
+GET    /analytics/growth?source=personal    Chronological view trend
 GET    /analytics/top-performing-hooks      Hook/niche benchmarks from dataset
-GET    /analytics/reel/{id}                 Per-reel engagement rates
 ```
 
-### ML Prediction
+### AI Studio
 ```
-POST   /predict/    Predict reel performance
-
-Body:
-{
-  "duration_sec": 15,
-  "hook_strength_score": 0.8,   // 0.0–1.0
-  "niche": "Motivation",
-  "music_type": "Trending",
-  "is_weekend": 1
-}
-
-Response:
-{
-  "predicted_views": 312400,
-  "performance_category": "High",
-  "virality_probability": 0.78,
-  "recommendation": "..."
-}
+POST   /ai/hooks       Generate 5 hook variations      { niche, angle }
+POST   /ai/brief       Generate full reel brief         { niche, idea }
+POST   /ai/strategy    Strategy read from live data     (no body — pulls analytics)
+POST   /ai/series      Storytelling series plan         { concept, episode_count }
+POST   /ai/trends      Trending formats in niche        { niche }
 ```
 
 ### Ingestion
 ```
-POST   /ingest/        Run full data ingestion
-DELETE /ingest/clear   Truncate all reels and insights
+POST   /ingest/        Run full ingestion (re-applies manual tags after)
+DELETE /ingest/clear   Truncate reels + insights (reel_tags preserved)
 ```
 
 ---
 
-## ML Model
+## AI Studio
 
-**Algorithm:** RandomForestRegressor (scikit-learn)
-**Target:** `views_total`
-**Features:**
-- `duration_sec` — reel length in seconds
-- `hook_strength_score` — 0.0–1.0 signal strength of opening
-- `niche` — content category (one-hot encoded)
-- `music_type` — audio type (one-hot encoded)
-- `is_weekend` — binary posting day signal
+Five tools powered by claude-sonnet-4-6, each aware of the creator's content pillars and voice:
 
-**Training data:** 400 viral short-form videos with real performance metrics
-**Evaluation:** Mean Absolute Error on 20% holdout test set
+| Tool | What it does |
+|------|-------------|
+| **Hook Lab** | 5 hook variations for any niche + angle, with psychological explanation |
+| **Content Brief** | Full reel brief: hook, build, payoff, CTA, caption starter, hashtags |
+| **Strategy Advisor** | Pulls live analytics and gives a sharp strategy read — what's working, what isn't, one action this week. Includes Best Posting Day chart. |
+| **Series Planner** | Multi-episode storytelling arc with hooks and cliffhangers |
+| **Trend Scout** | Trending formats, hook styles, and one underused angle for the niche |
 
-To retrain:
-```bash
-cd backend
-python ml/train_model.py
-```
+Every tool receives three layers of context at call time:
+- **`CREATOR_CONTEXT`** — 7 content pillars, audience profile, and voice (static, in `ai_service.py`)
+- **`build_data_context(db)`** — live analytics: niche performance ranked by avg views, top performing reel hooks, audio type breakdown (queried fresh on each call)
+- **Planner context** — upcoming scheduled content, active brand deals, and active series serialised from the creator's localStorage planner and passed from the frontend
+
+This means the Hook Lab already knows what's scheduled this week, the Content Brief knows which brand deals are live, and the Strategy Advisor has the full picture.
 
 ---
 
-## Ingestion Architecture
+## Content Tagging System
 
-The ingestion layer uses the **strategy pattern** — all data sources implement a common interface:
+Reels can be manually tagged with:
+- **Primary niche** (single-select): Fitness, Beauty, Lifestyle, Fashion, Faith, Travel
+- **Storytelling** (additive toggle): combinable with any niche
 
-```python
-class BaseIngestionClient(ABC):
-    def fetch_reels(self) -> List[Dict]
-    def fetch_insights(self, reel_id: str) -> Dict
-```
+**Design decision:** `reel_tags` has no foreign key to `reels`. This means tags survive `DELETE /ingest/clear` — re-seeding the database doesn't wipe manual work. After every ingest run, `ingestion_service` re-applies existing tags to freshly inserted reels.
 
-**Current:** `SeedClient` — reads from `ig_content_log.csv` (personal Instagram data) and the viral shorts dataset. Personal reels are tagged `source=personal`.
+Tags feed directly into analytics — the Content Pillars panel on the Insights page uses these labels.
 
-**Ready:** `InstagramClient` — fully stubbed Graph API implementation. To activate:
-1. Set `IG_ACCESS_TOKEN` and `IG_USER_ID` in `.env`
-2. In `controllers/ingestion_controller.py`, replace `SeedClient()` with `InstagramClient()`
+---
 
-Nothing else changes.
+## ML Infrastructure
+
+Performance prediction was the original north star: a pre-posting predictor estimating view counts and viral probability from reel structure. A full pipeline was built — feature engineering, RandomForestRegressor, `/predict` endpoint — but it is inactive in production.
+
+Six data constraints blocked activation, most critically the Instagram Graph API verification required for real per-reel metrics. The platform pivoted to AI-driven workflow tools that answer more actionable questions with available data. The infrastructure is preserved for reactivation once Graph API access is established.
+
+Full decision record and obstacle analysis: [ADR-004 — ML Exploration and Pivot](docs/adr/004-ml-exploration-and-pivot.md)
 
 ---
 
@@ -291,12 +320,13 @@ Nothing else changes.
 
 | Route | Description |
 |-------|-------------|
-| `/` | Dashboard — KPIs, growth trend chart, top reels, category + audio breakdown |
-| `/reels` | Reels Library — grid of personal reels with key metrics |
+| `/` | Dashboard — KPIs, growth trend (full card height), top reels, niche performance (2-col breakdown) |
+| `/reels` | Reels Library — filter by niche/duration/timeframe/storytelling, sort 9 ways, live count, keyboard-accessible |
+| `/reels/[id]` | Reel detail — 3-column layout, video + content/tags + metrics, prev/next navigation (← → keys), manual tagging |
+| `/insights` | Content Insights — avg views by niche, hook length patterns, posting cadence, top performing hooks |
+| `/studio` | AI Studio — 5 Claude-powered content tools; each call receives live analytics + planner context |
 | `/scrapbook` | Freeform creative canvas — Excalidraw, localStorage persistence, exportable |
 | `/planner` | Content calendar — CRUD for posts, brand deals, series, batch sessions |
-| `/predict` | ML Predictor — form input → predicted views, virality score, recommendations |
-| `/strategy` | Strategy — category intelligence, hook analysis, audio type performance |
 
 ---
 
@@ -306,6 +336,7 @@ Nothing else changes.
 - Python 3.9+
 - Node.js 18+
 - PostgreSQL running locally
+- Anthropic API key (for AI Studio)
 
 ### 1. Clone and configure
 
@@ -314,10 +345,10 @@ git clone <repo>
 cd creator-dashboard
 ```
 
-Create `.env` in the project root:
+Create `backend/.env`:
 ```
-DATABASE_URL=postgresql://your_user@localhost:5432/creator_db
-NEXT_PUBLIC_API_URL=http://localhost:8000
+DATABASE_URL=postgresql://localhost/creator_db
+ANTHROPIC_API_KEY=sk-ant-...
 IG_ACCESS_TOKEN=
 IG_USER_ID=
 ```
@@ -328,10 +359,7 @@ IG_USER_ID=
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
-
-# Train the ML model (required before first run)
-python ml/train_model.py
+uv pip install -r requirements.txt   # or: pip install -r requirements.txt
 
 # Start the API server
 uvicorn main:app --reload
@@ -343,13 +371,13 @@ uvicorn main:app --reload
 curl -X POST http://localhost:8000/ingest/
 ```
 
-This loads 9 personal reels (`source=personal`) and 400 synthetic records (`source=synthetic`). The personal reels power the dashboard and reels library. The full dataset trains the ML model and drives analytics patterns.
-
-To reset and re-seed:
+Loads 80 personal reels from the Instagram data export (`source=personal`) and 400 synthetic records (`source=synthetic`). To reset:
 ```bash
 curl -X DELETE http://localhost:8000/ingest/clear
 curl -X POST http://localhost:8000/ingest/
 ```
+
+Note: manual reel tags are preserved through clear/reingest cycles.
 
 ### 4. Frontend
 
@@ -361,32 +389,32 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-### 5. API documentation
-
-FastAPI serves interactive docs automatically:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
 ---
 
 ## Design Decisions
 
-**Why FastAPI?** Native async support, automatic OpenAPI docs, Pydantic validation — significantly faster to iterate on than Django REST for an API-first service.
+Full rationale in the [Architecture Decision Records](docs/adr/).
 
-**Why the strategy pattern for ingestion?** The Instagram Graph API requires Meta Developer account verification which was blocked during development. Designing the ingestion layer against an abstract interface means the data source is swappable — `SeedClient` is replaced by `InstagramClient` with one line change, no business logic touched.
-
-**Why `source` tagging on reels?** Mixing personal data with synthetic training data in one table required a way to filter by origin. The dashboard shows real personal metrics to brands; analytics use the full dataset for statistically meaningful patterns.
-
-**Why RandomForest over a neural network?** The training dataset is 400 rows — too small for deep learning. RandomForest handles tabular data well at this scale, generalizes without overfitting, and provides interpretable feature importances.
-
-**Why not Alembic for migrations?** For a single-developer project at this stage, `ALTER TABLE` and `create_all()` are sufficient. Alembic would be introduced before multi-developer collaboration or production deployment.
+- **Layered backend (Controller → Service → Repository)** — each layer is independently testable; business logic never lives in route handlers. → [ADR-001](docs/adr/001-layered-backend-architecture.md)
+- **Strategy pattern for ingestion** — `InstagramExportClient` swaps to `InstagramClient` with one line change; no business logic touched. → [ADR-002](docs/adr/002-ingestion-strategy-pattern.md)
+- **No FK on `reel_tags`** — manual tags survive `DELETE /ingest/clear`; ingestion service re-applies them after each run. → [ADR-003](docs/adr/003-reel-tags-no-foreign-key.md)
+- **ML infrastructure preserved but inactive** — Graph API verification blocked production use; platform pivoted to AI-driven workflow. → [ADR-004](docs/adr/004-ml-exploration-and-pivot.md)
+- **claude-sonnet-4-6 as default model** — evaluated against GPT-4o, Haiku, and Gemini Flash; Sonnet wins on voice fidelity for creator-specific output. Planned tiering: Haiku for Hook Lab/Trend Scout, Opus for Strategy Advisor. → [ADR-005](docs/adr/005-ai-model-selection.md)
+- **Single-select niche** — keeps `avg_views by category` queries clean without joins; secondary niche field (additive) is a planned near-term addition.
+- **Metrics estimated from aggregate export data** — Instagram export has no per-reel breakdown; views distributed across reels using exponential weighting to approximate the natural reach curve. Per-reel accuracy requires the Graph API.
 
 ---
 
 ## Roadmap
 
-- Instagram Graph API integration (infrastructure already in place)
-- Scheduled ingestion with APScheduler or Celery
-- Prediction logging to database for model performance tracking over time
-- SHAP values for per-prediction feature explainability
-- Multi-user support with OAuth
+### Near-term
+- **Secondary niche field** — multi-select for cross-pillar reels (Fitness + Lifestyle, Travel + Fashion), additive metadata that doesn't disrupt analytics
+- **Instagram Graph API** — infrastructure in place, swap one line once token available; unlocks real per-reel metrics, watch time, and eventually ML predictor
+
+### Medium-term
+- Scheduled ingestion (APScheduler or Celery) for automated metric refresh
+- Alembic migrations before multi-developer collaboration
+- ML predictor reactivation once real per-reel data is available from Graph API
+
+### Long-term
+- **Dual-view architecture** — brand-facing portal surfacing portfolio, metrics, content calendar, and a proposal inbox alongside the personal dashboard. AI generates the media kit narrative from live data and scores inbound brand proposals against the creator's content pillars. → [ADR-006](docs/adr/006-dual-view-personal-and-brand-portal.md)

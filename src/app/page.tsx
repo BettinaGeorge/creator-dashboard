@@ -177,7 +177,7 @@ export default function DashboardPage() {
         <div className="charts-row">
 
           {/* Growth trend */}
-          <div className="panel">
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
             <div className="panel-header">
               <div>
                 <div className="panel-title">Growth Trend</div>
@@ -202,7 +202,7 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                <div className="chart-area">
+                <div className="chart-area" style={{ flex: 1, height: 'auto', minHeight: 140 }}>
                   {growth.map((pt, i) => {
                     const val = chartValue(pt)
                     const pct = (val / maxChart * 100).toFixed(1)
@@ -265,7 +265,7 @@ export default function DashboardPage() {
         {/* ── BOTTOM ROW ── */}
         <div className="bottom-row">
 
-          <div className="panel" style={{ animationDelay: '0.4s', gridColumn: 'span 2' }}>
+          <div className="panel" style={{ animationDelay: '0.4s' }}>
             <div className="panel-header">
               <div>
                 <div className="panel-title">Niches</div>
