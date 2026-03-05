@@ -40,5 +40,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Instagram data export — personal data, never commit
-backend/data/instagram-_be/
+# Instagram data export — personal data, never commit except reels.json
+backend/data/instagram-_be/**
+!backend/data/instagram-_be/your_instagram_activity/
+!backend/data/instagram-_be/your_instagram_activity/media/
+!backend/data/instagram-_be/your_instagram_activity/media/reels.json
