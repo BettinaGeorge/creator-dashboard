@@ -175,7 +175,7 @@ function RunButton({ loading, onClick }: { loading: boolean; onClick: () => void
 // ── Tools ────────────────────────────────────────────────────────────────────
 
 function HookLab() {
-  const [niche, setNiche]   = useState(CATEGORIES[0])
+  const [niche, setNiche]   = useState<CategoryName>(CATEGORIES[0])
   const [angle, setAngle]   = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
@@ -235,7 +235,7 @@ function HookLab() {
 }
 
 function ContentBrief() {
-  const [niche, setNiche]   = useState(CATEGORIES[0])
+  const [niche, setNiche]   = useState<CategoryName>(CATEGORIES[0])
   const [idea, setIdea]     = useState('')
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
@@ -446,7 +446,7 @@ function SeriesPlanner() {
 }
 
 function TrendScout() {
-  const [niche, setNiche]   = useState(CATEGORIES[0])
+  const [niche, setNiche]   = useState<CategoryName>(CATEGORIES[0])
   const [result, setResult] = useState('')
   const [loading, setLoading] = useState(false)
 
