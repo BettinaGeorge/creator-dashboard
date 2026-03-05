@@ -144,7 +144,7 @@ class InstagramExportClient(BaseIngestionClient):
     Loads real reels (captions, timestamps, video files) from the export,
     then supplements with the viral shorts dataset for analytics coverage.
 
-    Drop-in replacement for SeedClient — same interface.
+    Implements BaseIngestionClient.
     """
 
     def __init__(self):

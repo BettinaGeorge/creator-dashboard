@@ -1,7 +1,7 @@
 """
 Instagram Graph API ingestion client.
 
-Implements BaseIngestionClient — drop-in replacement for SeedClient.
+Implements BaseIngestionClient.
 
 Prerequisites:
   1. Complete Meta Developer app setup and verify your account.
@@ -13,7 +13,7 @@ Prerequisites:
 
 To activate:
   In controllers/ingestion_controller.py, replace:
-      client = SeedClient()
+      client = InstagramExportClient()
   with:
       client = InstagramClient()
 """
@@ -32,7 +32,7 @@ INSIGHT_METRICS = "impressions,reach,saved,shares,video_views,total_interactions
 class InstagramClient(BaseIngestionClient):
     """
     Fetches real reel data and insights from the Instagram Graph API.
-    Implements BaseIngestionClient — swap with SeedClient at any time.
+    Implements BaseIngestionClient.
     """
 
     def __init__(self):
