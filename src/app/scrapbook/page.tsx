@@ -449,8 +449,8 @@ export default function ScrapbookPage() {
 
   const handleSeed = () => {
     if (!apiRef.current) return
-    apiRef.current.updateScene({ elements: SAMPLE_ELEMENTS as any, files: {} as any })
     localStorage.setItem('scrapbook_canvas', JSON.stringify({ elements: SAMPLE_ELEMENTS, files: {} }))
+    apiRef.current.updateScene({ elements: SAMPLE_ELEMENTS as any })
     setSeeded(true)
   }
 
