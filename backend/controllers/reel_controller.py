@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from core.database import get_db
@@ -23,5 +23,8 @@ def get_reel_with_insights_endpoint(
     reel_id: str,
     db: Session = Depends(get_db)
 ):
-    return get_reel_with_insights_service(db, reel_id)
+    reel = get_reel_with_insights_service(db, reel_id)
+    if reel is None:
+        raise HTTPException(status_code=404, detail="Reel not found")
+    return reel
 
