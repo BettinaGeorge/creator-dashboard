@@ -7,7 +7,7 @@ from sklearn.metrics import mean_absolute_error
 
 # Project paths
 BASE_DIR = Path(__file__).resolve().parent
-DATA_PATH = BASE_DIR.parent / "data" / "viral_shorts_reels_performance_dataset.csv"
+DATA_PATH = BASE_DIR / "viral_shorts_reels_performance_dataset.csv"
 
 print("Loading dataset from:", DATA_PATH)
 

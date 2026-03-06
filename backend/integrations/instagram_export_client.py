@@ -8,14 +8,12 @@ Metrics are estimated from real aggregate account data (content_interactions.jso
 since the export does not include per-reel performance breakdowns.
 Per-reel metrics require the Instagram Graph API.
 
-Also loads the viral shorts dataset for supplemental analytics coverage.
+Loads only real reels from the Instagram export.
 """
 
 import json
 import re
-import uuid
 import random
-import pandas as pd
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Dict, Any
@@ -25,7 +23,6 @@ from integrations.base_client import BaseIngestionClient
 BASE_DIR   = Path(__file__).resolve().parent.parent
 EXPORT_DIR = BASE_DIR / "data" / "instagram-_be"
 REELS_JSON = EXPORT_DIR / "your_instagram_activity" / "media" / "reels.json"
-VIRAL_PATH = BASE_DIR / "data" / "viral_shorts_reels_performance_dataset.csv"
 
 # Real aggregate metrics from content_interactions.json (Dec 4 – Mar 3)
 AGGREGATE = {
@@ -150,7 +147,6 @@ class InstagramExportClient(BaseIngestionClient):
     def __init__(self):
         self._records: List[Dict[str, Any]] = []
         self._load_export_reels()
-        self._load_viral_dataset()
 
     def _load_export_reels(self):
         if not REELS_JSON.exists():
@@ -198,53 +194,6 @@ class InstagramExportClient(BaseIngestionClient):
             })
 
         print(f"[ExportClient] Loaded {len(self._records)} real reels from Instagram export")
-
-    def _load_viral_dataset(self):
-        if not VIRAL_PATH.exists():
-            return
-
-        count_before = len(self._records)
-        df = pd.read_csv(VIRAL_PATH)
-
-        for _, row in df.iterrows():
-            niche  = str(row.get("niche", "Lifestyle"))
-            views  = int(row.get("views_total", 0))
-            reach       = round(views * 0.90)
-            impressions = round(views * 1.15)
-            engagement  = round(views * 0.08)
-            saves       = round(engagement * 0.15)
-            shares      = round(engagement * 0.10)
-
-            posted_at = None
-            try:
-                posted_at = pd.to_datetime(row["upload_time"]).to_pydatetime()
-            except Exception:
-                pass
-
-            self._records.append({
-                "reel": {
-                    "id":         str(row.get("video_id", uuid.uuid4())),
-                    "caption":    f"{niche} content",
-                    "hook_text":  HOOK_TEMPLATES.get(niche, "watch until the end"),
-                    "duration":   int(row.get("duration_sec", 15)),
-                    "category":   niche,
-                    "audio_type": str(row.get("music_type", "Trending")),
-                    "posted_at":  posted_at,
-                    "source":     "synthetic",
-                    "video_url":  None,
-                },
-                "insight": {
-                    "impressions":  impressions,
-                    "reach":        reach,
-                    "engagement":   engagement,
-                    "saves":        saves,
-                    "shares":       shares,
-                    "video_views":  views,
-                },
-            })
-
-        added = len(self._records) - count_before
-        print(f"[ExportClient] Loaded {added} synthetic reels from viral dataset")
 
     def fetch_reels(self) -> List[Dict[str, Any]]:
         return [r["reel"] for r in self._records]
