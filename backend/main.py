@@ -45,6 +45,13 @@ except Exception as e:
 configure_mappers()
 Base.metadata.create_all(bind=engine)
 
+# Add columns introduced after initial deployment (safe — IF NOT EXISTS is a no-op)
+from sqlalchemy import text
+with engine.connect() as _conn:
+    _conn.execute(text("ALTER TABLE reels ADD COLUMN IF NOT EXISTS video_url TEXT"))
+    _conn.execute(text("ALTER TABLE reels ADD COLUMN IF NOT EXISTS source VARCHAR"))
+    _conn.commit()
+
 app.include_router(reel_tag_router)
 app.include_router(reel_router)
 app.include_router(ai_router)
