@@ -1,6 +1,8 @@
 # Creator Content Intelligence Platform
 
-A full-stack content analytics and AI studio platform built for Instagram creators. Ingests real reel metadata from Instagram's data export, stores engagement data in PostgreSQL, surfaces performance patterns across niches and posting history, and uses Claude AI to power a full content creation workflow — hook writing, briefs, series planning, strategy reads, and trend scouting.
+A personal full-stack system I built to turn my own Instagram content into structured data — so I can see what's working, understand why, and create with intention instead of instinct.
+
+I'm a content creator documenting my life as a Nigerian college student in the US — fitness, beauty, faith, fashion, travel, the whole honest journey. Instagram gives you a feed, not a feedback loop. This is my feedback loop. It ingests my real reel data from Instagram's export, stores it in PostgreSQL, surfaces performance patterns across my content niches and posting history, and uses Claude AI to power a full content creation workflow — hook writing, briefs, series planning, strategy reads, and trend scouting.
 
 > **Status:** Fully functional — backend complete, frontend wired to live data, AI Studio active.
 >
@@ -306,6 +308,38 @@ Tags feed directly into analytics — the Content Pillars panel on the Insights 
 
 ---
 
+## Testing
+
+The backend has a pytest test suite that runs entirely in-memory — no Postgres connection, no external services required.
+
+```bash
+cd backend
+uv run pytest tests/ -v
+```
+
+**20 tests · all passing**
+
+| File | Approach | What it covers |
+|------|----------|---------------|
+| `test_reels.py` | Integration | CRUD endpoints, 404 handling, reel + insight relationships |
+| `test_analytics.py` | Integration | Summary stats, category breakdown, audio types, top performing |
+| `test_ingestion.py` | Integration + Unit | Ingest run, idempotency, clear endpoint, export client loading |
+| `test_prediction.py` | Integration + Unit | Input validation (422 on missing fields), field presence, direct predictor call |
+
+**Approach — integration-first, not E2E**
+
+Tests hit real FastAPI route handlers via `TestClient`, flow through the full stack (controller → service → repository), and write to a real SQLite database. This verifies that the layers wire together correctly — not just that individual functions return the right values in isolation.
+
+The one unit test (`test_predictor_directly`) calls `predict_reel()` directly, bypassing HTTP entirely, to confirm the ML module is importable and returns the expected shape.
+
+No E2E tests — those would require a browser and the deployed frontend/backend. Not the right tool for a solo personal project at this stage.
+
+**Test isolation** is handled by a shared `conftest.py`: each test function gets a fresh SQLite database via function-scoped fixtures and `StaticPool` (ensures all connections share the same in-memory DB within a test). No test state leaks between runs.
+
+The prediction tests are included for completeness — the `/predict` endpoint exists in the codebase — but prediction is not an active feature. See [ADR-004](docs/adr/004-ml-exploration-and-pivot.md) and [ADR-007](docs/adr/007-testing-approach.md).
+
+---
+
 ## ML Infrastructure
 
 Performance prediction was the original north star: a pre-posting predictor estimating view counts and viral probability from reel structure. A full pipeline was built — feature engineering, RandomForestRegressor, `/predict` endpoint — but it is inactive in production.
@@ -402,6 +436,7 @@ Full rationale in the [Architecture Decision Records](docs/adr/).
 - **claude-sonnet-4-6 as default model** — evaluated against GPT-4o, Haiku, and Gemini Flash; Sonnet wins on voice fidelity for creator-specific output. Planned tiering: Haiku for Hook Lab/Trend Scout, Opus for Strategy Advisor. → [ADR-005](docs/adr/005-ai-model-selection.md)
 - **Single-select niche** — keeps `avg_views by category` queries clean without joins; secondary niche field (additive) is a planned near-term addition.
 - **Metrics estimated from aggregate export data** — Instagram export has no per-reel breakdown; views distributed across reels using exponential weighting to approximate the natural reach curve. Per-reel accuracy requires the Graph API.
+- **Integration-first testing with in-memory SQLite** — tests hit real FastAPI route handlers through the full stack with no Postgres dependency; SQLite + StaticPool gives clean isolation per test function. → [ADR-007](docs/adr/007-testing-approach.md)
 
 ---
 
