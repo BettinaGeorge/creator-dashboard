@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from core.database import get_db
@@ -18,8 +18,11 @@ def ingest(db: Session = Depends(get_db)):
         Replace: client = InstagramExportClient()
         With:    client = InstagramClient()
     """
-    client = InstagramExportClient()
-    return run_ingestion(db, client)
+    try:
+        client = InstagramExportClient()
+        return run_ingestion(db, client)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/clear")
